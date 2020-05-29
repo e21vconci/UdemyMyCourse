@@ -1,23 +1,19 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
+﻿using Microsoft.EntityFrameworkCore;
+using MyCourse.Models.Entities;
 
-namespace MyCourse.Models.Entities
+namespace MyCourse.Models.Services.Infrastructure
 {
     public partial class MyCourseDbContext : DbContext
     {
-        public MyCourseDbContext()
-        {
-        }
-
         public MyCourseDbContext(DbContextOptions<MyCourseDbContext> options)
             : base(options)
         {
         }
 
-        public virtual DbSet<Courses> Courses { get; set; }
-        public virtual DbSet<Lessons> Lessons { get; set; }
+        public virtual DbSet<Course> Courses { get; set; }
+        public virtual DbSet<Lesson> Lessons { get; set; }
 
+        /* Viene eliminato quando si utilizza il service AddDbContextPool
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
@@ -25,14 +21,37 @@ namespace MyCourse.Models.Entities
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. See http://go.microsoft.com/fwlink/?LinkId=723263 for guidance on storing connection strings.
                 optionsBuilder.UseSqlite("Data Source=Data/MyCourse.db");
             }
-        }
+        }*/
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.HasAnnotation("ProductVersion", "2.2.4-servicing-10062");
 
-            modelBuilder.Entity<Courses>(entity =>
+            modelBuilder.Entity<Course>(entity =>
             {
+                entity.ToTable("Courses"); //Superfluo se la tabella si chiama come la proprietà che espone il DbSet 
+                entity.HasKey(course => course.Id); //Superfluo se la proprietà si chiama Id oppure se si chiama CoursesId
+                //entity.HasKey(course => new { course.Id, course.Author }); //Tutte le proprietà coinvolte nel vincolo di chiave primaria
+
+                //Mapping per gli owned types
+                entity.OwnsOne(course => course.CurrentPrice, builder => {
+                    builder.Property(money => money.Currency)
+                    .HasConversion<string>() // Perchè Currency è di tipo enum
+                    .HasColumnName("CurrentPrice_Currency"); //Questo è superfluo perchè le nostre colonne seguono già la convenzione di nomi
+                    builder.Property(money => money.Amount).HasColumnName("CurrentPrice_Amount"); //Questo è superfluo perchè le nostre colonne seguono già la convenzione di nomi
+                });
+
+                entity.OwnsOne(course => course.FullPrice, builder => {
+                    builder.Property(money => money.Currency).HasConversion<string>();
+                });
+
+                //Mapping per le relazioni
+                entity.HasMany(course => course.Lessons) //entità principale Course
+                      .WithOne(lesson => lesson.Course)
+                      .HasForeignKey(lesson => lesson.CourseId); //Superflua se la proprietà si chiama CourseID
+
+                #region Mapping generato automaticamente dal tool di reverse engineering
+                /*
                 entity.Property(e => e.Id).ValueGeneratedNever();
 
                 entity.Property(e => e.Author)
@@ -72,10 +91,18 @@ namespace MyCourse.Models.Entities
                 entity.Property(e => e.Title)
                     .IsRequired()
                     .HasColumnType("TEXT (100)");
+                    */
+                #endregion
             });
 
-            modelBuilder.Entity<Lessons>(entity =>
+            modelBuilder.Entity<Lesson>(entity =>
             {
+                entity.HasOne(lesson => lesson.Course)
+                      .WithMany(course => course.Lessons); //basta definirlo solo una volta: o dal punto di vista dell'entità principale 
+                      //o dal punto di vista dell'entità dipendente (questa è l'entità dipendente Lesson)
+                
+                #region Mapping generato automaticamente dal tool di reverse engineering
+                /*
                 entity.Property(e => e.Id).ValueGeneratedNever();
 
                 entity.Property(e => e.Description).HasColumnType("TEXT (10000)");
@@ -92,6 +119,8 @@ namespace MyCourse.Models.Entities
                 entity.HasOne(d => d.Course)
                     .WithMany(p => p.Lessons)
                     .HasForeignKey(d => d.CourseId);
+                */
+                #endregion
             });
         }
     }
