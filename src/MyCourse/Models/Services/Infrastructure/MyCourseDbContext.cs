@@ -38,7 +38,10 @@ namespace MyCourse.Models.Services.Infrastructure
                     builder.Property(money => money.Currency)
                     .HasConversion<string>() // Perchè Currency è di tipo enum
                     .HasColumnName("CurrentPrice_Currency"); //Questo è superfluo perchè le nostre colonne seguono già la convenzione di nomi
-                    builder.Property(money => money.Amount).HasColumnName("CurrentPrice_Amount"); //Questo è superfluo perchè le nostre colonne seguono già la convenzione di nomi
+                    
+                    builder.Property(money => money.Amount)
+                    .HasConversion<float>() //Mapping da decimal a float per il prezzo per EFCore 3.0
+                    .HasColumnName("CurrentPrice_Amount"); //Questo è superfluo perchè le nostre colonne seguono già la convenzione di nomi
                 });
 
                 entity.OwnsOne(course => course.FullPrice, builder => {
