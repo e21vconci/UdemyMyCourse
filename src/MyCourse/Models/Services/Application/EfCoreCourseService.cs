@@ -149,10 +149,15 @@ namespace MyCourse.Models.Services.Application
                     break;
             }
 
-            IQueryable<CourseViewModel> queryLinq = baseQuery
+            IQueryable<Course> queryLinq = baseQuery
                 .Where(course => course.Title.Contains(model.Search))
-                .AsNoTracking()
-                .Select(course => CourseViewModel.FromEntity(course)); //Usando metodi statici come FromEntity, la query potrebbe essere inefficiente. Mantenere il mapping nella lambda oppure usare un extension method personalizzato
+                .AsNoTracking();
+                //per problemi legati a EFCore 3.0 bisogna spostare la Select dopo Skip e Take
+
+            List<CourseViewModel> courses = await queryLinq
+                .Skip(model.Offset)
+                .Take(model.Limit)
+                .Select(course => CourseViewModel.FromEntity(course)) //Usando metodi statici come FromEntity, la query potrebbe essere inefficiente. Mantenere il mapping nella lambda oppure usare un extension method personalizzato
             /*    new CourseViewModel {
                     Id = course.Id,
                     Title = course.Title,
@@ -162,10 +167,6 @@ namespace MyCourse.Models.Services.Application
                     CurrentPrice = course.CurrentPrice,
                     FullPrice = course.FullPrice
             });*/
-
-            List<CourseViewModel> courses = await queryLinq
-                .Skip(model.Offset)
-                .Take(model.Limit)
                 .ToListAsync(); //La query al database viene inviata qui, quando manifestiamo l'intenzione di voler leggere i risultati
 
             int totalCount = await queryLinq.CountAsync();
