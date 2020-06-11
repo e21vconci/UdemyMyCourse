@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using MyCourse.Models.Options;
 using MyCourse.Models.Services.Application;
 using MyCourse.Models.Services.Infrastructure;
@@ -40,10 +41,15 @@ namespace MyCourse
                 Configuration.Bind("ResponseCache:Home", homeProfile);
                 
                 options.CacheProfiles.Add("Home", homeProfile);
-            }).SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+            }).SetCompatibilityVersion(CompatibilityVersion.Version_3_0)
+            #if DEBUG
+            .AddRazorRuntimeCompilation()
+            #endif
+            ;
+
             //services.AddTransient<ICourseService, CourseService>();
-            services.AddTransient<ICourseService, AdoNetCourseService>();
-            //services.AddTransient<ICourseService, EfCoreCourseService>();
+            //services.AddTransient<ICourseService, AdoNetCourseService>();
+            services.AddTransient<ICourseService, EfCoreCourseService>();
             services.AddTransient<IDatabaseAccessor, SqliteDatabaseAccessor>();
             services.AddTransient<ICachedCourseService, MemoryCacheCourseService>();
 
@@ -65,14 +71,15 @@ namespace MyCourse
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         // Qui vengono inseriti i middleware
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime lifetime)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime lifetime)
         {
-            if (env.IsProduction()) 
+            /*if (env.IsProduction()) 
             {
                 app.UseHttpsRedirection();
-            }
+            }*/
 
-            if (env.IsDevelopment())
+            //if (env.IsDevelopment())
+            if (env.IsEnvironment("Development"))
             {
                 app.UseDeveloperExceptionPage();
 
@@ -90,15 +97,24 @@ namespace MyCourse
 
             app.UseStaticFiles();
 
+            //EndpointRoutingMiddleware
+            app.UseRouting();
+
             app.UseResponseCaching();
-            // Middleware di routing
+
+            //EndpointMiddleware
+            app.UseEndpoints(routeBuilder => {
+                routeBuilder.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
+            });
+
+            // Middleware di routing .NET 2.2
             //app.UseMvcWithDefaultRoute();
-            app.UseMvc(routeBuilder =>
+            /*app.UseMvc(routeBuilder =>
             {
                 // es. /courses/detail/5
                 // route di default
                 routeBuilder.MapRoute("default", "{controller=Home}/{action=Index}/{id?}");
-            });
+            });*/
         }
     }
 }
