@@ -12,6 +12,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MyCourse.Models.Enums;
 using MyCourse.Models.Options;
 using MyCourse.Models.Services.Application;
 using MyCourse.Models.Services.Infrastructure;
@@ -47,21 +48,31 @@ namespace MyCourse
             #endif
             ;
 
-            //services.AddTransient<ICourseService, CourseService>();
-            //services.AddTransient<ICourseService, AdoNetCourseService>();
-            services.AddTransient<ICourseService, EfCoreCourseService>();
-            services.AddTransient<IDatabaseAccessor, SqliteDatabaseAccessor>();
-            services.AddTransient<ICachedCourseService, MemoryCacheCourseService>();
-
-            //services.AddScoped<MyCourseDbContext>();
-            //services.AddDbContext<MyCourseDbContext>();
-            services.AddDbContextPool<MyCourseDbContext>(optionsBuilder => 
+            //Usiamo ADO.NET o Entity Framework Core per l'accesso ai dati?
+            var persistence = Persistence.AdoNet;
+            switch (persistence)
             {
-                //#warning To protect potentially sensitive information in your connection string, you should move it out of source code. See http://go.microsoft.com/fwlink/?LinkId=723263 for guidance on storing connection strings.
-                //optionsBuilder.UseSqlite("Data Source=Data/MyCourse.db");
-                string connectionString = Configuration.GetSection("ConnectionStrings").GetValue<string>("Default");
-                optionsBuilder.UseSqlite(connectionString);
-            });
+                case Persistence.AdoNet:
+                    services.AddTransient<ICourseService, AdoNetCourseService>();
+                    services.AddTransient<IDatabaseAccessor, SqliteDatabaseAccessor>();
+                break;
+
+                case Persistence.EfCore:
+                    services.AddTransient<ICourseService, EfCoreCourseService>();
+                    //services.AddScoped<MyCourseDbContext>();
+                    //services.AddDbContext<MyCourseDbContext>();
+                    services.AddDbContextPool<MyCourseDbContext>(optionsBuilder => 
+                    {
+                        //#warning To protect potentially sensitive information in your connection string, you should move it out of source code. See http://go.microsoft.com/fwlink/?LinkId=723263 for guidance on storing connection strings.
+                        //optionsBuilder.UseSqlite("Data Source=Data/MyCourse.db");
+                        string connectionString = Configuration.GetSection("ConnectionStrings").GetValue<string>("Default");
+                        optionsBuilder.UseSqlite(connectionString);
+                    });
+                break;
+            }
+            //services.AddTransient<ICourseService, CourseService>();
+            
+            services.AddTransient<ICachedCourseService, MemoryCacheCourseService>();
 
             //Options
             services.Configure<ConnectionStringsOptions>(Configuration.GetSection("ConnectionStrings"));
