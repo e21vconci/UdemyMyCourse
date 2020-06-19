@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using MyCourse.Models.Enums;
 using MyCourse.Models.ValueTypes;
 
 namespace MyCourse.Models.Entities
@@ -20,6 +21,9 @@ namespace MyCourse.Models.Entities
             Title = title;
             Author = author;
             Lessons = new HashSet<Lesson>();
+            CurrentPrice = new Money(Currency.EUR, 0);
+            FullPrice = new Money(Currency.EUR, 0);
+            ImagePath = "/Courses/default.png";
         }
 
         public int Id { get; private set; }
@@ -57,6 +61,36 @@ namespace MyCourse.Models.Entities
             }
             FullPrice = newFullPrice;
             CurrentPrice = newDiscountPrice;
+        }
+
+        public void ChangeEmail(string newEmail)
+        {
+            if (string.IsNullOrEmpty(newEmail))
+            {
+                throw new ArgumentException("Email can't be empty");
+            }
+            Email = newEmail;
+        }
+
+        public void ChangeDescription(string newDescription)
+        {
+            if (newDescription != null)
+            {
+                if (newDescription.Length < 20)
+                {
+                    throw new Exception("Description is too short");
+                }
+                else if (newDescription.Length > 4000)
+                {
+                    throw new Exception("Description is too long");
+                }
+            }
+            Description = newDescription;
+        }
+
+        public void ChangeImagePath(string imagePath)
+        {
+            ImagePath = imagePath;
         }
 
         public virtual ICollection<Lesson> Lessons { get; private set; }

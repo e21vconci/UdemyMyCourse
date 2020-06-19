@@ -78,5 +78,27 @@ namespace MyCourse.Models.Services.Application
             //Altrimenti uso il servizio applicativo sottostante, che recupererà sempre i valori dal database
             return courseService.GetCoursesAsync(model);
         }
+
+        public Task<CourseDetailViewModel> CreateCourseAsync(CourseCreateInputModel inputModel)
+        {
+            return courseService.CreateCourseAsync(inputModel);
+        }
+
+        public Task<bool> IsTitleAvailableAsync(string title)
+        {
+            return courseService.IsTitleAvailableAsync(title);
+        }
+
+        public Task<CourseEditInputModel> GetCourseForEditingAsync(int id)
+        {
+            return courseService.GetCourseForEditingAsync(id);
+        }
+
+        public async Task<CourseDetailViewModel> EditCourseAsync(CourseEditInputModel inputModel)
+        {
+            CourseDetailViewModel viewModel = await courseService.EditCourseAsync(inputModel);
+            memoryCache.Remove($"Course{inputModel.Id}");
+            return viewModel;
+        }
     }
 }
