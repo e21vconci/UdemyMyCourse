@@ -16,6 +16,9 @@ using MyCourse.Models.Enums;
 using MyCourse.Models.Options;
 using MyCourse.Models.Services.Application;
 using MyCourse.Models.Services.Infrastructure;
+using System.Globalization;
+using MyCourse.Customizations.ModelBinders;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace MyCourse
 {
@@ -40,8 +43,10 @@ namespace MyCourse
                 //homeProfile.Location = Configuration.GetValue<ResponseCacheLocation>("ResponseCache:Location");
                 //homeProfile.VaryByQueryKeys = new string[] { "page" };
                 Configuration.Bind("ResponseCache:Home", homeProfile);
-                
                 options.CacheProfiles.Add("Home", homeProfile);
+
+                options.ModelBinderProviders.Insert(0, new DecimalModelBinderProvider());
+
             }).SetCompatibilityVersion(CompatibilityVersion.Version_3_0)
             #if DEBUG
             .AddRazorRuntimeCompilation()
@@ -73,11 +78,13 @@ namespace MyCourse
             //services.AddTransient<ICourseService, CourseService>();
             
             services.AddTransient<ICachedCourseService, MemoryCacheCourseService>();
+            services.AddSingleton<IImagePersister, MagickNetImagePersister>();
 
             //Options
             services.Configure<ConnectionStringsOptions>(Configuration.GetSection("ConnectionStrings"));
             services.Configure<CoursesOptions>(Configuration.GetSection("Courses"));
             services.Configure<MemoryCacheOptions>(Configuration.GetSection("MemoryCache"));
+            services.Configure<KestrelServerOptions>(Configuration.GetSection("Kestrel"));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -107,6 +114,14 @@ namespace MyCourse
             }
 
             app.UseStaticFiles();
+
+            //Nel caso volessi impostare una Culture specifica...
+            /*var appCulture = CultureInfo.InvariantCulture;
+            app.UseRequestLocalization(new RequestLocalizationOptions
+            {
+                DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(appCulture),
+                SupportedCultures = new[] { appCulture }
+            });*/
 
             //EndpointRoutingMiddleware
             app.UseRouting();

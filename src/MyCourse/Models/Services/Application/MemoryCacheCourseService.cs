@@ -21,7 +21,6 @@ namespace MyCourse.Models.Services.Application
             this.courseService = courseService;
         }
 
-        //TODO: ricordati di usare memoryCache.Remove($"Course{id}") quando aggiorni il corso
         public Task<CourseDetailViewModel> GetCourseAsync(int id)
         {
             int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
@@ -84,9 +83,9 @@ namespace MyCourse.Models.Services.Application
             return courseService.CreateCourseAsync(inputModel);
         }
 
-        public Task<bool> IsTitleAvailableAsync(string title)
+        public Task<bool> IsTitleAvailableAsync(string title, int id)
         {
-            return courseService.IsTitleAvailableAsync(title);
+            return courseService.IsTitleAvailableAsync(title, id);
         }
 
         public Task<CourseEditInputModel> GetCourseForEditingAsync(int id)
@@ -94,6 +93,7 @@ namespace MyCourse.Models.Services.Application
             return courseService.GetCourseForEditingAsync(id);
         }
 
+        //TODO: ricordati di usare memoryCache.Remove($"Course{id}") quando aggiorni il corso
         public async Task<CourseDetailViewModel> EditCourseAsync(CourseEditInputModel inputModel)
         {
             CourseDetailViewModel viewModel = await courseService.EditCourseAsync(inputModel);

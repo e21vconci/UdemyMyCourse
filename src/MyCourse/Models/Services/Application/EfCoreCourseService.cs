@@ -21,9 +21,11 @@ namespace MyCourse.Models.Services.Application
         private readonly MyCourseDbContext dbContext;
         private readonly IOptionsMonitor<CoursesOptions> coursesOptions;
         private readonly ILogger<EfCoreCourseService> logger;
+        private readonly IImagePersister imagePersister;
 
-        public EfCoreCourseService(ILogger<EfCoreCourseService> logger, MyCourseDbContext dbContext, IOptionsMonitor<CoursesOptions> coursesOptions)
+        public EfCoreCourseService(ILogger<EfCoreCourseService> logger, IImagePersister imagePersister, MyCourseDbContext dbContext, IOptionsMonitor<CoursesOptions> coursesOptions)
         {
+            this.imagePersister = imagePersister;
             this.logger = logger;
             this.coursesOptions = coursesOptions;
             this.dbContext = dbContext;
@@ -74,8 +76,8 @@ namespace MyCourse.Models.Services.Application
                 limit: coursesOptions.CurrentValue.InHome,
                 orderOptions: coursesOptions.CurrentValue.Order);
 
-                ListViewModel<CourseViewModel> result = await GetCoursesAsync(inputModel);
-                return result.Results;
+            ListViewModel<CourseViewModel> result = await GetCoursesAsync(inputModel);
+            return result.Results;
         }
 
         public async Task<List<CourseViewModel>> GetBestRatingCoursesAsync()
@@ -88,8 +90,8 @@ namespace MyCourse.Models.Services.Application
                 limit: coursesOptions.CurrentValue.InHome,
                 orderOptions: coursesOptions.CurrentValue.Order);
 
-                ListViewModel<CourseViewModel> result = await GetCoursesAsync(inputModel);
-                return result.Results;
+            ListViewModel<CourseViewModel> result = await GetCoursesAsync(inputModel);
+            return result.Results;
         }
 
         public async Task<ListViewModel<CourseViewModel>> GetCoursesAsync(CourseListInputModel model)
@@ -104,10 +106,10 @@ namespace MyCourse.Models.Services.Application
                 orderby = orderOptions.By;
                 ascending = orderOptions.Ascending;
             }*/
-            
+
             IQueryable<Course> baseQuery = dbContext.Courses;
 
-            switch(model.OrderBy)
+            switch (model.OrderBy)
             {
                 case "Title":
                     if (model.Ascending)
@@ -154,7 +156,7 @@ namespace MyCourse.Models.Services.Application
             IQueryable<Course> queryLinq = baseQuery
                 .Where(course => course.Title.Contains(model.Search))
                 .AsNoTracking();
-                //per problemi legati a EFCore 3.0 bisogna spostare la Select dopo Skip e Take
+            //per problemi legati a EFCore 3.0 bisogna spostare la Select dopo Skip e Take
 
             List<CourseViewModel> courses = await queryLinq
                 .Skip(model.Offset)
@@ -172,13 +174,13 @@ namespace MyCourse.Models.Services.Application
                 .ToListAsync(); //La query al database viene inviata qui, quando manifestiamo l'intenzione di voler leggere i risultati
 
             int totalCount = await queryLinq.CountAsync();
-            
+
             ListViewModel<CourseViewModel> result = new ListViewModel<CourseViewModel>
             {
                 Results = courses,
                 TotalCount = totalCount
             };
- 
+
             return result;
         }
 
@@ -200,10 +202,10 @@ namespace MyCourse.Models.Services.Application
             return CourseDetailViewModel.FromEntity(course);
         }
 
-        public async Task<bool> IsTitleAvailableAsync(string title)
+        public async Task<bool> IsTitleAvailableAsync(string title, int id)
         {
-            await dbContext.Courses.AnyAsync(course => course.Title == title);
-            bool titleExists = await dbContext.Courses.AnyAsync(course => EF.Functions.Like(course.Title, title));
+            //await dbContext.Courses.AnyAsync(course => course.Title == title);
+            bool titleExists = await dbContext.Courses.AnyAsync(course => EF.Functions.Like(course.Title, title) && course.Id != id);
             return !titleExists;
         }
 
@@ -234,6 +236,9 @@ namespace MyCourse.Models.Services.Application
             course.ChangeDescription(inputModel.Description);
             course.ChangeEmail(inputModel.Email);
 
+            string imagePath = await imagePersister.SaveCourseImageAsync(inputModel.Id, inputModel.Image);
+            course.ChangeImagePath(imagePath);
+            
             //dbContext.Update(course); 
 
             try

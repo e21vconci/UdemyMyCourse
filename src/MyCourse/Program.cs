@@ -15,7 +15,7 @@ namespace MyCourse
     {
         public static void Main(string[] args)
         {
-            string firstArgument = args.FirstOrDefault();
+            //string firstArgument = args.FirstOrDefault();
             CreateWebHostBuilder(args).Build().Run();
         }
 
