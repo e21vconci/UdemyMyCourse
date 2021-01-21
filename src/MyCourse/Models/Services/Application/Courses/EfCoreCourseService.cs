@@ -9,11 +9,15 @@ using MyCourse.Models.ViewModels;
 using MyCourse.Models.Options;
 using Microsoft.Extensions.Logging;
 using MyCourse.Models.Entities;
-using MyCourse.Models.InputModels;
 using Microsoft.Data.Sqlite;
 using MyCourse.Models.Exceptions;
+using MyCourse.Models.Exceptions.Application;
+using MyCourse.Models.InputModels.Courses;
+using MyCourse.Models.ViewModels.Courses;
+using MyCourse.Models.ViewModels.Lessons;
+using MyCourse.Models.Enums;
 
-namespace MyCourse.Models.Services.Application
+namespace MyCourse.Models.Services.Application.Courses
 {
     public class EfCoreCourseService : ICourseService
     {
@@ -37,31 +41,21 @@ namespace MyCourse.Models.Services.Application
         {
             IQueryable<CourseDetailViewModel> queryLinq = dbContext.Courses
                 .AsNoTracking()
+                .Include(course => course.Lessons)
                 .Where(course => course.Id == id)
-                .Select(course => new CourseDetailViewModel
-                {
-                    Id = course.Id,
-                    Title = course.Title,
-                    Description = course.Description,
-                    Author = course.Author,
-                    ImagePath = course.ImagePath,
-                    Rating = course.Rating,
-                    CurrentPrice = course.CurrentPrice,
-                    FullPrice = course.FullPrice,
-                    Lessons = course.Lessons.Select(lesson => new LessonViewModel
-                    {
-                        Id = lesson.Id,
-                        Title = lesson.Title,
-                        Description = lesson.Description,
-                        Duration = lesson.Duration
-                    }).ToList()
-                });
+                .Select(course => CourseDetailViewModel.FromEntity(course)); //Usando metodi statici come FromEntity, la query potrebbe essere inefficiente. Mantenere il mapping nella lambda oppure usare un extension method personalizzato
 
             CourseDetailViewModel viewModel = await queryLinq.SingleAsync();
             //.FirstOrDefaultAsync(); //Restituisce null se l'elenco è vuoto e non solleva mai un'eccezione
             //.SingleOrDefaultAsync(); //Tollera il fatto che l'elenco sia vuoto e in quel caso restituisce null, oppure se l'elenco contiene più di un elemento solleva un'eccezione
             //.FirstAsync(); //Restituisce il primo elemento, ma se l'elenco è vuoto solleva un'eccezione
             //.SingleAsync(); //Restituisce il primo elemento dell'elenco, ma se l'elenco ne contiene 0 o più di 1, allora solleva un'eccezione
+
+            if (viewModel == null) 
+            {
+                logger.LogWarning("Course {id} not found", id);
+                throw new CourseNotFoundException(id);
+            }
 
             return viewModel;
         }
@@ -107,7 +101,7 @@ namespace MyCourse.Models.Services.Application
                 ascending = orderOptions.Ascending;
             }*/
 
-            IQueryable<Course> baseQuery = dbContext.Courses;
+            IQueryable<MyCourse.Models.Entities.Course> baseQuery = dbContext.Courses;
 
             switch (model.OrderBy)
             {
@@ -236,14 +230,31 @@ namespace MyCourse.Models.Services.Application
             course.ChangeDescription(inputModel.Description);
             course.ChangeEmail(inputModel.Email);
 
-            string imagePath = await imagePersister.SaveCourseImageAsync(inputModel.Id, inputModel.Image);
-            course.ChangeImagePath(imagePath);
-            
+            // aggiornamento proprietà RowVersion. con Entry accediamo al change tracker
+            dbContext.Entry(course).Property(course => course.RowVersion).OriginalValue = inputModel.RowVersion;
+
+            if (inputModel.Image != null)
+            {
+                try
+                {
+                    string imagePath = await imagePersister.SaveCourseImageAsync(inputModel.Id, inputModel.Image);
+                    course.ChangeImagePath(imagePath);
+                }
+                catch (Exception exc)
+                {
+                    throw new CourseImageInvalidException(inputModel.Id, exc);
+                }
+            }
+
             //dbContext.Update(course); 
 
             try
             {
                 await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new OptimisticConcurrencyException();
             }
             catch (DbUpdateException exc) when ((exc.InnerException as SqliteException)?.SqliteErrorCode == 19)
             {
@@ -251,6 +262,19 @@ namespace MyCourse.Models.Services.Application
             }
 
             return CourseDetailViewModel.FromEntity(course);
+        }
+
+        public async Task DeleteCourseAsync(CourseDeleteInputModel inputModel)
+        {
+            Course course = await dbContext.Courses.FindAsync(inputModel.Id);
+
+            if (course == null) 
+            {
+                throw new CourseNotFoundException(inputModel.Id);
+            }
+
+            course.ChangeStatus(CourseStatus.Deleted);
+            await dbContext.SaveChangesAsync();
         }
     }
 }

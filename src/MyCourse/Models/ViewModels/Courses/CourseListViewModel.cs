@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using MyCourse.Models.InputModels;
+using MyCourse.Models.InputModels.Courses;
 
-namespace MyCourse.Models.ViewModels
+namespace MyCourse.Models.ViewModels.Courses
 {
     //Classe per mantenere lo stato tra le view razor
     public class CourseListViewModel : IPaginationInfo

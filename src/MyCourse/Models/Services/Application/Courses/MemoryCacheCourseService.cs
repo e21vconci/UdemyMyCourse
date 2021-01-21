@@ -4,9 +4,10 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using MyCourse.Models.ViewModels;
 using Microsoft.Extensions.Configuration;
-using MyCourse.Models.InputModels;
+using MyCourse.Models.InputModels.Courses;
+using MyCourse.Models.ViewModels.Courses;
 
-namespace MyCourse.Models.Services.Application
+namespace MyCourse.Models.Services.Application.Courses
 {
     public class MemoryCacheCourseService : ICachedCourseService
     {
@@ -66,7 +67,7 @@ namespace MyCourse.Models.Services.Application
             if (canCache)
             {
                 int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
-                return memoryCache.GetOrCreateAsync($"Courses{model.Page}-{model.OrderBy}-{model.Ascending}", cacheEntry => 
+                return memoryCache.GetOrCreateAsync($"Courses{model.Page}-{model.OrderBy}-{model.Ascending}", cacheEntry =>
                 {
                     //cacheEntry.SetSize(1);
                     cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(timeSpan)); //Esercizio: provate a recuperare il valore 60 usando il servizio di configurazione
@@ -99,6 +100,12 @@ namespace MyCourse.Models.Services.Application
             CourseDetailViewModel viewModel = await courseService.EditCourseAsync(inputModel);
             memoryCache.Remove($"Course{inputModel.Id}");
             return viewModel;
+        }
+
+        public async Task DeleteCourseAsync(CourseDeleteInputModel inputModel)
+        {
+            await courseService.DeleteCourseAsync(inputModel);
+            memoryCache.Remove($"Course{inputModel.Id}");
         }
     }
 }

@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using MyCourse.Models.Services.Application;
+using MyCourse.Models.Services.Application.Courses;
 using MyCourse.Models.ViewModels;
+using MyCourse.Models.ViewModels.Courses;
+using MyCourse.Models.ViewModels.Home;
 
 namespace MyCourse.Controllers
 {

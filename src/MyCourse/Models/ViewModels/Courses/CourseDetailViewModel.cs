@@ -5,21 +5,18 @@ using System.Linq;
 using MyCourse.Models.Entities;
 using MyCourse.Models.Enums;
 using MyCourse.Models.ValueTypes;
+using MyCourse.Models.ViewModels.Lessons;
 
-namespace MyCourse.Models.ViewModels
+namespace MyCourse.Models.ViewModels.Courses
 {
     public class CourseDetailViewModel : CourseViewModel
     {
-        public CourseDetailViewModel()
-        {
-            Lessons = new List<LessonViewModel>();
-        }
         public string Description { get; set; }
-        public List<LessonViewModel> Lessons { get; set; }
+        public List<LessonViewModel> Lessons { get; set; } = new List<LessonViewModel>();
 
-        public TimeSpan TotalCourseDuration 
-        { 
-            get => TimeSpan.FromSeconds(Lessons?.Sum(l => l.Duration.TotalSeconds) ?? 0);    
+        public TimeSpan TotalCourseDuration
+        {
+            get => TimeSpan.FromSeconds(Lessons?.Sum(l => l.Duration.TotalSeconds) ?? 0);
         }
 
         public static new CourseDetailViewModel FromDataRow(DataRow courseRow)
@@ -47,7 +44,8 @@ namespace MyCourse.Models.ViewModels
 
         public static new CourseDetailViewModel FromEntity(Course course)
         {
-            return new CourseDetailViewModel {
+            return new CourseDetailViewModel
+            {
                 Id = course.Id,
                 Title = course.Title,
                 Description = course.Description,
@@ -57,9 +55,11 @@ namespace MyCourse.Models.ViewModels
                 CurrentPrice = course.CurrentPrice,
                 FullPrice = course.FullPrice,
                 Lessons = course.Lessons
+                                    .OrderBy(lesson => lesson.Order)
+                                    .ThenBy(lesson => lesson.Id)
                                     .Select(lesson => LessonViewModel.FromEntity(lesson))
                                     .ToList()
             };
         }
     }
-} 
+}

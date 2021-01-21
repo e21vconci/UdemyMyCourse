@@ -9,17 +9,9 @@ namespace MyCourse.Models.Entities
     {
         public Course(string title, string author)
         {
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                throw new ArgumentException("The course must have a title");
-            }
-            if (string.IsNullOrWhiteSpace(author))
-            {
-                throw new ArgumentException("The course must have an author");
-            }
-
-            Title = title;
-            Author = author;
+            ChangeTitle(title);
+            ChangeAuthor(author);
+            ChangeStatus(CourseStatus.Draft);
             Lessons = new HashSet<Lesson>();
             CurrentPrice = new Money(Currency.EUR, 0);
             FullPrice = new Money(Currency.EUR, 0);
@@ -35,6 +27,23 @@ namespace MyCourse.Models.Entities
         public double Rating { get; private set; }
         public Money FullPrice { get; private set; }
         public Money CurrentPrice { get; private set; }
+        public string RowVersion { get; private set; }
+        public CourseStatus Status { get; private set; }
+
+        public void ChangeStatus(CourseStatus newStatus)
+        {
+            //TODO: logica di validazione
+            Status = newStatus;
+        }
+
+        public void ChangeAuthor(string newAuthor) 
+        {
+            if (string.IsNullOrWhiteSpace(newAuthor))
+            {
+                throw new ArgumentException("The author must have a name");
+            }
+            Author = newAuthor;
+        }
 
         public void ChangeTitle(string newTitle) 
         {

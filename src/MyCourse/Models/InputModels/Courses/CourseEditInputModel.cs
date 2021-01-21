@@ -9,7 +9,7 @@ using MyCourse.Models.Entities;
 using MyCourse.Models.Enums;
 using MyCourse.Models.ValueTypes;
 
-namespace MyCourse.Models.InputModels
+namespace MyCourse.Models.InputModels.Courses
 {
     public class CourseEditInputModel : IValidatableObject
     {
@@ -23,12 +23,12 @@ namespace MyCourse.Models.InputModels
          Remote(action: nameof(CoursesController.IsTitleAvailable), controller: "Courses", ErrorMessage = "Il titolo esiste già", AdditionalFields = "Id"),
          Display(Name = "Titolo")]
         public string Title { get; set; }
-        
+
         [MinLength(10, ErrorMessage = "La descrizione dev'essere di almeno {1} caratteri"),
          MaxLength(4000, ErrorMessage = "La descrizione dev'essere di massimo {1} caratteri"),
          Display(Name = "Descrizione")]
         public string Description { get; set; }
-        
+
         [Display(Name = "Immagine rappresentativa")]
         public string ImagePath { get; set; }
 
@@ -47,16 +47,17 @@ namespace MyCourse.Models.InputModels
 
         [Display(Name = "Nuova immagine...")]
         public IFormFile Image { get; set; }
+        public string RowVersion { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (FullPrice.Currency != CurrentPrice.Currency)
             {
-                yield return new ValidationResult("Il prezzo intero deve avere la stessa valuta del prezzo corrente", new [] { nameof(FullPrice) });
+                yield return new ValidationResult("Il prezzo intero deve avere la stessa valuta del prezzo corrente", new[] { nameof(FullPrice) });
             }
             else if (FullPrice.Amount < CurrentPrice.Amount)
             {
-                yield return new ValidationResult("Il prezzo intero non può essere inferiore al prezzo corrente", new [] { nameof(FullPrice) });
+                yield return new ValidationResult("Il prezzo intero non può essere inferiore al prezzo corrente", new[] { nameof(FullPrice) });
             }
         }
 
@@ -76,21 +77,24 @@ namespace MyCourse.Models.InputModels
                     Enum.Parse<Currency>(Convert.ToString(courseRow["CurrentPrice_Currency"])),
                     Convert.ToDecimal(courseRow["CurrentPrice_Amount"])
                 ),
-                Id = Convert.ToInt32(courseRow["Id"])
+                Id = Convert.ToInt32(courseRow["Id"]),
+                RowVersion = Convert.ToString(courseRow["RowVersion"])
             };
             return courseEditInputModel;
         }
 
         public static CourseEditInputModel FromEntity(Course course)
         {
-            return new CourseEditInputModel {
+            return new CourseEditInputModel
+            {
                 Id = course.Id,
                 Title = course.Title,
                 Description = course.Description,
                 Email = course.Email,
                 ImagePath = course.ImagePath,
                 CurrentPrice = course.CurrentPrice,
-                FullPrice = course.FullPrice
+                FullPrice = course.FullPrice,
+                RowVersion = course.RowVersion
             };
         }
     }

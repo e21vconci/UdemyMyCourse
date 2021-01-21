@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using MyCourse.Models.ViewModels.Courses;
 
-namespace MyCourse.Models.ViewModels
+namespace MyCourse.Models.ViewModels.Home
 {
     public class HomeViewModel : CourseViewModel
     {
