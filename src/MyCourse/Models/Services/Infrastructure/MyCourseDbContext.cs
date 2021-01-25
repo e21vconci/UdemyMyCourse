@@ -31,6 +31,7 @@ namespace MyCourse.Models.Services.Infrastructure
 
             modelBuilder.HasAnnotation("ProductVersion", "2.2.4-servicing-10062");
 
+            // Per il mapping utilizziamo l'interfaccia fluente (FLUENT)
             modelBuilder.Entity<Course>(entity =>
             {
                 entity.ToTable("Courses"); //Superfluo se la tabella si chiama come la proprietà che espone il DbSet 

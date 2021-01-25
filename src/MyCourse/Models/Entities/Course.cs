@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using MyCourse.Models.Enums;
 using MyCourse.Models.ValueTypes;
 
 namespace MyCourse.Models.Entities
 {
+    [Table("Courses")]
     public partial class Course
     {
         // authorId per la relazione utente registrato e autore del corso.
@@ -19,6 +22,7 @@ namespace MyCourse.Models.Entities
             ImagePath = "/Courses/default.png";
         }
 
+        [Key]
         public int Id { get; private set; }
         public string Title { get; private set; }
         public string Description { get; private set; }

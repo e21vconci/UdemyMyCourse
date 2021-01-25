@@ -44,11 +44,13 @@ namespace MyCourse.Models.Services.Application.Courses
 
         public async Task<CourseDetailViewModel> GetCourseAsync(int id)
         {
-            IQueryable<CourseDetailViewModel> queryLinq = dbContext.Courses
-                .AsNoTracking()
-                .Include(course => course.Lessons)
-                .Where(course => course.Id == id)
-                .Select(course => CourseDetailViewModel.FromEntity(course)); //Usando metodi statici come FromEntity, la query potrebbe essere inefficiente. Mantenere il mapping nella lambda oppure usare un extension method personalizzato
+            // Con esempio di query dichiarativa
+            IQueryable<CourseDetailViewModel> queryLinq = 
+                from course in dbContext.Courses.AsNoTracking().Include(course => course.Lessons)
+                where course.Id == id 
+                select CourseDetailViewModel.FromEntity(course);
+                // .Where(course => course.Id == id)
+                // .Select(course => CourseDetailViewModel.FromEntity(course)); //Usando metodi statici come FromEntity, la query potrebbe essere inefficiente. Mantenere il mapping nella lambda oppure usare un extension method personalizzato
 
             CourseDetailViewModel viewModel = await queryLinq.SingleAsync();
             //.FirstOrDefaultAsync(); //Restituisce null se l'elenco è vuoto e non solleva mai un'eccezione
