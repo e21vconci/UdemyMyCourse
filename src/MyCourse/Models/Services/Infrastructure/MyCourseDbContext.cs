@@ -1,10 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using MyCourse.Models.Entities;
 using MyCourse.Models.Enums;
 
 namespace MyCourse.Models.Services.Infrastructure
 {
-    public partial class MyCourseDbContext : DbContext
+    public partial class MyCourseDbContext : IdentityDbContext<ApplicationUser>
     {
         public MyCourseDbContext(DbContextOptions<MyCourseDbContext> options)
             : base(options)
@@ -26,6 +27,8 @@ namespace MyCourse.Models.Services.Infrastructure
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.HasAnnotation("ProductVersion", "2.2.4-servicing-10062");
 
             modelBuilder.Entity<Course>(entity =>
@@ -60,7 +63,11 @@ namespace MyCourse.Models.Services.Infrastructure
                 });
 
                 //Mapping per le relazioni
-                entity.HasMany(course => course.Lessons) //entità principale Course
+                entity.HasOne(course => course.AuthorUser) // relazione uno a molti(un autore, molti corsi)
+                      .WithMany(user => user.AuthoredCourses)
+                      .HasForeignKey(course => course.AuthorId);
+
+                entity.HasMany(course => course.Lessons) //entità principale Course relazione molti a uno(molte lezioni, un corso)
                       .WithOne(lesson => lesson.Course)
                       .HasForeignKey(lesson => lesson.CourseId); //Superflua se la proprietà si chiama CourseID
 

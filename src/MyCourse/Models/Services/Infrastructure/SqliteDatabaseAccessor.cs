@@ -9,6 +9,7 @@ using MyCourse.Models.Options;
 using Microsoft.Extensions.Logging;
 using MyCourse.Models.ValueTypes;
 using MyCourse.Models.Exceptions.Infrastructure;
+using System.Threading;
 
 namespace MyCourse.Models.Services.Infrastructure
 {
@@ -25,13 +26,13 @@ namespace MyCourse.Models.Services.Infrastructure
             //this.configuration = configuration;
         }
 
-        public async Task<int> CommandAsync(FormattableString formattableCommand)
+        public async Task<int> CommandAsync(FormattableString formattableCommand, CancellationToken token)
         {
             try
             {
-                using SqliteConnection conn = await GetOpenedConnection();
+                using SqliteConnection conn = await GetOpenedConnection(token);
                 using SqliteCommand cmd = GetCommand(formattableCommand, conn);
-                int affectedRows = await cmd.ExecuteNonQueryAsync();
+                int affectedRows = await cmd.ExecuteNonQueryAsync(token);
                 return affectedRows;
             }
             catch (SqliteException exc) when (exc.SqliteErrorCode == 19)
@@ -40,11 +41,11 @@ namespace MyCourse.Models.Services.Infrastructure
             }
         }
 
-        public async Task<T> QueryScalarAsync<T>(FormattableString formattableQuery)
+        public async Task<T> QueryScalarAsync<T>(FormattableString formattableQuery, CancellationToken token)
         {
             try
             {
-                using SqliteConnection conn = await GetOpenedConnection();
+                using SqliteConnection conn = await GetOpenedConnection(token);
                 using SqliteCommand cmd = GetCommand(formattableQuery, conn);
                 object result = await cmd.ExecuteScalarAsync();
                 // converte l'oggetto in base al tipo stabilito dal chiamante 
@@ -56,11 +57,11 @@ namespace MyCourse.Models.Services.Infrastructure
             }
         }
 
-        public async Task<DataSet> QueryAsync(FormattableString formattableQuery)
+        public async Task<DataSet> QueryAsync(FormattableString formattableQuery, CancellationToken token)
         {
             logger.LogInformation(formattableQuery.Format, formattableQuery.GetArguments());
 
-            using SqliteConnection conn = await GetOpenedConnection();
+            using SqliteConnection conn = await GetOpenedConnection(token);
             using SqliteCommand cmd = GetCommand(formattableQuery, conn);
 
             //Inviamo la query al database e otteniamo un SqliteDataReader
@@ -68,7 +69,7 @@ namespace MyCourse.Models.Services.Infrastructure
 
             try
             {
-                using var reader = await cmd.ExecuteReaderAsync();
+                using var reader = await cmd.ExecuteReaderAsync(token);
                 var dataSet = new DataSet();
 
                 //Creiamo tanti DataTable per quante sono le tabelle
@@ -115,11 +116,11 @@ namespace MyCourse.Models.Services.Infrastructure
             return cmd;
         }
 
-        private async Task<SqliteConnection> GetOpenedConnection()
+        private async Task<SqliteConnection> GetOpenedConnection(CancellationToken token)
         {
             // Colleghiamoci al database Sqlite, inviamo la query e leggiamo i risultati
             var conn = new SqliteConnection(connectionStringOptions.CurrentValue.Default);
-            await conn.OpenAsync();
+            await conn.OpenAsync(token);
             return conn;
         }
     }

@@ -7,10 +7,11 @@ namespace MyCourse.Models.Entities
 {
     public partial class Course
     {
-        public Course(string title, string author)
+        // authorId per la relazione utente registrato e autore del corso.
+        public Course(string title, string author, string authorId)
         {
             ChangeTitle(title);
-            ChangeAuthor(author);
+            ChangeAuthor(author, authorId);
             ChangeStatus(CourseStatus.Draft);
             Lessons = new HashSet<Lesson>();
             CurrentPrice = new Money(Currency.EUR, 0);
@@ -29,6 +30,8 @@ namespace MyCourse.Models.Entities
         public Money CurrentPrice { get; private set; }
         public string RowVersion { get; private set; }
         public CourseStatus Status { get; private set; }
+        public string AuthorId { get; set; }
+        public ApplicationUser AuthorUser { get; set; }
 
         public void ChangeStatus(CourseStatus newStatus)
         {
@@ -36,13 +39,18 @@ namespace MyCourse.Models.Entities
             Status = newStatus;
         }
 
-        public void ChangeAuthor(string newAuthor) 
+        public void ChangeAuthor(string newAuthor, string newAuthorId) 
         {
             if (string.IsNullOrWhiteSpace(newAuthor))
             {
                 throw new ArgumentException("The author must have a name");
             }
+            if (string.IsNullOrWhiteSpace(newAuthorId))
+            {
+                throw new ArgumentException("The author must have a id");
+            }
             Author = newAuthor;
+            AuthorId = newAuthorId;
         }
 
         public void ChangeTitle(string newTitle) 

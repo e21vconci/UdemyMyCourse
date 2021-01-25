@@ -4,18 +4,21 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
+using Microsoft.Data.Sqlite;
+using MyCourse.Models.Enums;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+
 using MyCourse.Models.Services.Infrastructure;
 using MyCourse.Models.ViewModels;
 using MyCourse.Models.Options;
-using Microsoft.Extensions.Logging;
 using MyCourse.Models.Entities;
-using Microsoft.Data.Sqlite;
 using MyCourse.Models.Exceptions;
 using MyCourse.Models.Exceptions.Application;
 using MyCourse.Models.InputModels.Courses;
 using MyCourse.Models.ViewModels.Courses;
 using MyCourse.Models.ViewModels.Lessons;
-using MyCourse.Models.Enums;
 
 namespace MyCourse.Models.Services.Application.Courses
 {
@@ -26,9 +29,11 @@ namespace MyCourse.Models.Services.Application.Courses
         private readonly IOptionsMonitor<CoursesOptions> coursesOptions;
         private readonly ILogger<EfCoreCourseService> logger;
         private readonly IImagePersister imagePersister;
+        private readonly IHttpContextAccessor httpContextAccessor;
 
-        public EfCoreCourseService(ILogger<EfCoreCourseService> logger, IImagePersister imagePersister, MyCourseDbContext dbContext, IOptionsMonitor<CoursesOptions> coursesOptions)
+        public EfCoreCourseService(IHttpContextAccessor httpContextAccessor, ILogger<EfCoreCourseService> logger, IImagePersister imagePersister, MyCourseDbContext dbContext, IOptionsMonitor<CoursesOptions> coursesOptions)
         {
+            this.httpContextAccessor = httpContextAccessor;
             this.imagePersister = imagePersister;
             this.logger = logger;
             this.coursesOptions = coursesOptions;
@@ -51,7 +56,7 @@ namespace MyCourse.Models.Services.Application.Courses
             //.FirstAsync(); //Restituisce il primo elemento, ma se l'elenco è vuoto solleva un'eccezione
             //.SingleAsync(); //Restituisce il primo elemento dell'elenco, ma se l'elenco ne contiene 0 o più di 1, allora solleva un'eccezione
 
-            if (viewModel == null) 
+            if (viewModel == null)
             {
                 logger.LogWarning("Course {id} not found", id);
                 throw new CourseNotFoundException(id);
@@ -181,9 +186,24 @@ namespace MyCourse.Models.Services.Application.Courses
         public async Task<CourseDetailViewModel> CreateCourseAsync(CourseCreateInputModel inputModel)
         {
             string title = inputModel.Title;
-            string author = "Mario Rossi";
+            //string author = "Mario Rossi";
 
-            var course = new Course(title, author);
+            // Tramite Identity possiamo ricavare l'utente autenticato che effettua la creazione del corso
+            string author; 
+            string authorId;
+            
+            try 
+            {
+                author = httpContextAccessor.HttpContext.User.FindFirst("FullName").Value;
+                // Ricavo l'id dell'utente registrato che crea il nuovo corso
+                authorId = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
+            }
+            catch (NullReferenceException)
+            {
+                throw new UserUnkownException();
+            }
+
+            var course = new Course(title, author, authorId);
             dbContext.Add(course);
             try
             {
@@ -268,7 +288,7 @@ namespace MyCourse.Models.Services.Application.Courses
         {
             Course course = await dbContext.Courses.FindAsync(inputModel.Id);
 
-            if (course == null) 
+            if (course == null)
             {
                 throw new CourseNotFoundException(inputModel.Id);
             }
