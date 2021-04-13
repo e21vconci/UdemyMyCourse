@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using MyCourse.Models.ValueTypes;
 using MyCourse.Models.Exceptions.Infrastructure;
 using System.Threading;
+using Polly;
 
 namespace MyCourse.Models.Services.Infrastructure
 {
@@ -120,7 +121,15 @@ namespace MyCourse.Models.Services.Infrastructure
         {
             // Colleghiamoci al database Sqlite, inviamo la query e leggiamo i risultati
             var conn = new SqliteConnection(connectionStringOptions.CurrentValue.Default);
-            await conn.OpenAsync(token);
+
+            // Utilizziamo Polly in modo da tentare di nuovo l'apertura del db in caso di errori
+            var policy = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(2, retry => 
+                    TimeSpan.FromMilliseconds(1000));
+            await policy.ExecuteAsync(() => 
+                conn.OpenAsync());
+
             return conn;
         }
     }

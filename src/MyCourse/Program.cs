@@ -8,24 +8,45 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace MyCourse
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static int Main(string[] args)
         {
-            //string firstArgument = args.FirstOrDefault();
-            CreateWebHostBuilder(args).Build().Run();
+            try
+            {
+                Log.Information("Starting web host");
+                //string firstArgument = args.FirstOrDefault();
+                CreateWebHostBuilder(args).Build().Run();
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Host terminated unexpectedly");
+                return 1;
+            }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
 
-        public static IHostBuilder CreateWebHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webHostBuilder => {
-                    webHostBuilder.UseStartup<Startup>();
+        public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
+            WebHost.CreateDefaultBuilder(args)
+                // .ConfigureWebHostDefaults(webHostBuilder =>
+                // {
+                //     webHostBuilder.UseStartup<Startup>();
+                // })
+                .UseStartup<Startup>()
+                .UseSerilog((webHostBuilderContext, loggerConfiguration) =>
+                {
+                    loggerConfiguration.ReadFrom.Configuration(webHostBuilderContext.Configuration);
                 })
                 //.UseStartup<Startup>()
-        
+
                 //Se volessi configurare la DI in un'applicazione console userei:
                 //.ConfigureServices
 

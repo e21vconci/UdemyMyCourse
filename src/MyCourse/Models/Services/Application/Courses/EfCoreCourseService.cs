@@ -19,6 +19,7 @@ using MyCourse.Models.Exceptions.Application;
 using MyCourse.Models.InputModels.Courses;
 using MyCourse.Models.ViewModels.Courses;
 using MyCourse.Models.ViewModels.Lessons;
+using System.Linq.Dynamic.Core;
 
 namespace MyCourse.Models.Services.Application.Courses
 {
@@ -108,51 +109,60 @@ namespace MyCourse.Models.Services.Application.Courses
                 ascending = orderOptions.Ascending;
             }*/
 
-            IQueryable<MyCourse.Models.Entities.Course> baseQuery = dbContext.Courses;
-
-            switch (model.OrderBy)
+            string orderby = model.OrderBy;
+            if (orderby == "CurrentPrice")
             {
-                case "Title":
-                    if (model.Ascending)
-                    {
-                        baseQuery = baseQuery.OrderBy(course => course.Title);
-                    }
-                    else
-                    {
-                        baseQuery = baseQuery.OrderByDescending(course => course.Title);
-                    }
-                    break;
-                case "Rating":
-                    if (model.Ascending)
-                    {
-                        baseQuery = baseQuery.OrderBy(course => course.Rating);
-                    }
-                    else
-                    {
-                        baseQuery = baseQuery.OrderByDescending(course => course.Rating);
-                    }
-                    break;
-                case "CurrentPrice":
-                    if (model.Ascending)
-                    {
-                        baseQuery = baseQuery.OrderBy(course => course.CurrentPrice.Amount);
-                    }
-                    else
-                    {
-                        baseQuery = baseQuery.OrderByDescending(course => course.CurrentPrice.Amount);
-                    }
-                    break;
-                case "Id":
-                    if (model.Ascending)
-                    {
-                        baseQuery = baseQuery.OrderBy(course => course.Id);
-                    }
-                    else
-                    {
-                        baseQuery = baseQuery.OrderByDescending(course => course.Id);
-                    }
-                    break;
+                orderby = "CurrentPrice.Amount";
             }
+            string direction = model.Ascending ? "asc" : "desc";
+
+            IQueryable<MyCourse.Models.Entities.Course> baseQuery = dbContext.Courses.OrderBy($"{orderby} {direction}");
+
+
+            // UTILIZZO DYNAMIC LINQ
+            //switch (model.OrderBy)
+            //{
+            //    case "Title":
+            //        if (model.Ascending)
+            //        {
+            //            baseQuery = baseQuery.OrderBy(course => course.Title);
+            //        }
+            //        else
+            //        {
+            //            baseQuery = baseQuery.OrderByDescending(course => course.Title);
+            //        }
+            //        break;
+            //    case "Rating":
+            //        if (model.Ascending)
+            //        {
+            //            baseQuery = baseQuery.OrderBy(course => course.Rating);
+            //        }
+            //        else
+            //        {
+            //            baseQuery = baseQuery.OrderByDescending(course => course.Rating);
+            //        }
+            //        break;
+            //    case "CurrentPrice":
+            //        if (model.Ascending)
+            //        {
+            //            baseQuery = baseQuery.OrderBy(course => course.CurrentPrice.Amount);
+            //        }
+            //        else
+            //        {
+            //            baseQuery = baseQuery.OrderByDescending(course => course.CurrentPrice.Amount);
+            //        }
+            //        break;
+            //    case "Id":
+            //        if (model.Ascending)
+            //        {
+            //            baseQuery = baseQuery.OrderBy(course => course.Id);
+            //        }
+            //        else
+            //        {
+            //            baseQuery = baseQuery.OrderByDescending(course => course.Id);
+            //        }
+            //        break;
+            //}
 
             IQueryable<Course> queryLinq = baseQuery
                 .Where(course => course.Title.Contains(model.Search))
