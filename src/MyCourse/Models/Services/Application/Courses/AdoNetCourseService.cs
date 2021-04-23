@@ -110,6 +110,7 @@ namespace MyCourse.Models.Services.Application.Courses
             //     CourseViewModel courseViewModel = courseRow.ToCourseViewModel();
             //     courseList.Add(courseViewModel);
             // }
+
             // Utilizziamo AutoMapper per il mapping dataRow - viewModel
             var courseList = mapper.Map<List<CourseViewModel>>(dataTable.Rows);
 
