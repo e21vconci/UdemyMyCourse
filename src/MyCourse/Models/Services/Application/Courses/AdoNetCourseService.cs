@@ -77,47 +77,36 @@ namespace MyCourse.Models.Services.Application.Courses
             return courseDetailViewModel;
         }
 
+        // UTILIZZO ASYNC STREAMS
         public async Task<ListViewModel<CourseViewModel>> GetCoursesAsync(CourseListInputModel model)
         {
-            //Sanitizzazione parametri
-            /*page = Math.Max(1, page);
-            int limit = coursesOptions.CurrentValue.PerPage;
-            int offset = (page - 1) * limit;
-            var orderOptions = coursesOptions.CurrentValue.Order;
-            if(!orderOptions.Allow.Contains(orderby))
-            {
-                orderby = orderOptions.By;
-                ascending = orderOptions.Ascending;
-            }
-
-            //Decidere cosa estrarre dal db (componendo una query SQL)
-            if (orderby == "CurrentPrice")
-            {
-                orderby = "CurrentPrice_Amount";
-            }*/
             string orderby = model.OrderBy == "CurrentPrice" ? "CurrentPrice_Amount" : model.OrderBy;
             string direction = model.Ascending ? "ASC" : "DESC";
 
-            FormattableString query = $@"SELECT id, Title, ImagePath, Author, Rating, FullPrice_Amount, FullPrice_Currency, CurrentPrice_Amount, CurrentPrice_Currency FROM Courses WHERE Title LIKE {"%" + model.Search + "%"} AND Status<>{nameof(CourseStatus.Deleted)} ORDER BY {(Sql)orderby} {(Sql)direction} LIMIT {model.Limit} OFFSET {model.Offset}; 
-            SELECT COUNT(*) FROM Courses WHERE Title LIKE {"%" + model.Search + "%"} AND Status<>{nameof(CourseStatus.Deleted)}";
-            DataSet dataSet = await db.QueryAsync(query);
-            var dataTable = dataSet.Tables[0];
-            // var courseList = new List<CourseViewModel>();
-            // foreach (DataRow courseRow in dataTable.Rows)
-            // {
-            //     CourseViewModel courseViewModel = CourseViewModel.FromDataRow(courseRow);
-            //     Se volessimo usare il FromDataRow dell'extension method 
-            //     CourseViewModel courseViewModel = courseRow.ToCourseViewModel();
-            //     courseList.Add(courseViewModel);
-            // }
+            //Pagina di corsi
+            var courseList = new List<CourseViewModel>();
+            FormattableString coursesQuery = $"SELECT Id, Title, ImagePath, Author, Rating, FullPrice_Amount, FullPrice_Currency, CurrentPrice_Amount, CurrentPrice_Currency FROM Courses WHERE Title LIKE {"%" + model.Search + "%"} ORDER BY {(Sql)orderby} {(Sql)direction} LIMIT {model.Limit} OFFSET {model.Offset}";
+            IAsyncEnumerable<IDataRecord> coursesResults = db.QueryAsync(coursesQuery);
+            await foreach (IDataRecord dataRecord in coursesResults)
+            {
+                CourseViewModel courseViewModel = CourseViewModel.FromDataRecord(dataRecord);
+                courseList.Add(courseViewModel);
+            }
 
-            // Utilizziamo AutoMapper per il mapping dataRow - viewModel
-            var courseList = mapper.Map<List<CourseViewModel>>(dataTable.Rows);
+            //Conteggio totale dei corsi
+            int count = 0;
+            FormattableString countQuery = $"SELECT COUNT(*) FROM Courses WHERE Title LIKE {"%" + model.Search + "%"}";
+            IAsyncEnumerable<IDataRecord> countResults = db.QueryAsync(countQuery);
+            await foreach (IDataRecord dataRecord in countResults)
+            {
+                count = dataRecord.GetInt32(0);
+                break;
+            }
 
             ListViewModel<CourseViewModel> result = new ListViewModel<CourseViewModel>
             {
                 Results = courseList,
-                TotalCount = Convert.ToInt32(dataSet.Tables[1].Rows[0][0])
+                TotalCount = count
             };
 
             return result;

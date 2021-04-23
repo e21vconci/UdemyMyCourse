@@ -58,38 +58,47 @@ namespace MyCourse.Models.Services.Infrastructure
             }
         }
 
-        public async Task<DataSet> QueryAsync(FormattableString formattableQuery, CancellationToken token)
+        // UTILIZZO ASYNC STREAMS
+        public async IAsyncEnumerable<IDataRecord> QueryAsync(FormattableString formattableQuery)
         {
             logger.LogInformation(formattableQuery.Format, formattableQuery.GetArguments());
 
-            using SqliteConnection conn = await GetOpenedConnection(token);
-            using SqliteCommand cmd = GetCommand(formattableQuery, conn);
-
-            //Inviamo la query al database e otteniamo un SqliteDataReader
-            //per leggere i risultati
-
-            try
+            //Creiamo dei SqliteParameter a partire dalla FormattableString
+            var queryArguments = formattableQuery.GetArguments();
+            var sqliteParameters = new List<SqliteParameter>();
+            for (var i = 0; i < queryArguments.Length; i++)
             {
-                using var reader = await cmd.ExecuteReaderAsync(token);
-                var dataSet = new DataSet();
-
-                //Creiamo tanti DataTable per quante sono le tabelle
-                //di risultati trovate dal SqliteDataReader
-                do
+                if (queryArguments[i] is Sql)
                 {
-                    var dataTable = new DataTable();
-                    dataSet.Tables.Add(dataTable);
-                    dataTable.Load(reader);
-                } while (!reader.IsClosed);
-
-                return dataSet;
-                //utilizzando using il metodo Dispose() viene invocato in automatico quando l'oggetto
-                //non è più disponibile
-                //conn.Dispose();
+                    continue;
+                }
+                var parameter = new SqliteParameter(i.ToString(), queryArguments[i]);
+                sqliteParameters.Add(parameter);
+                queryArguments[i] = "@" + i;
             }
-            catch (SqliteException exc) when (exc.SqliteErrorCode == 19)
+            string query = formattableQuery.ToString();
+
+            //Colleghiamoci al database Sqlite, inviamo la query e leggiamo i risultati
+            string connectionString = connectionStringOptions.CurrentValue.Default;
+
+            using (var conn = new SqliteConnection(connectionString))
             {
-                throw new ConstraintViolationException(exc);
+                await conn.OpenAsync();
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    //Aggiungiamo i SqliteParameters al SqliteCommand
+                    cmd.Parameters.AddRange(sqliteParameters);
+
+                    //Inviamo la query al database e otteniamo un SqliteDataReader
+                    //per leggere i risultati
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            yield return reader;
+                        }
+                    }
+                }
             }
         }
 
