@@ -3,29 +3,31 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+using System.Globalization;
+using AutoMapper;
+using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Globalization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Identity;
-using AutoMapper;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 using MyCourse.Models.Enums;
 using MyCourse.Models.Options;
 using MyCourse.Models.Services.Infrastructure;
-using MyCourse.Customizations.ModelBinders;
+using MyCourse.Models.Entities;
+using MyCourse.Models.Validators;
 using MyCourse.Models.Services.Application.Courses;
 using MyCourse.Models.Services.Application.Lessons;
+using MyCourse.Customizations.ModelBinders;
 using MyCourse.Customizations.Identity;
-using MyCourse.Models.Entities;
-using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace MyCourse
 {
@@ -57,6 +59,13 @@ namespace MyCourse
                 options.ModelBinderProviders.Insert(0, new DecimalModelBinderProvider());
 
             }).SetCompatibilityVersion(CompatibilityVersion.Version_3_0)
+            .AddFluentValidation(options => {
+                options.RegisterValidatorsFromAssemblyContaining<CourseCreateValidator>();
+                //Per il validator personalizzato
+                options.ConfigureClientsideValidation(clientSide => {
+                    clientSide.Add(typeof(RemotePropertyValidator), (context, description, validator) => new RemoteClientValidator(description, validator));
+                });
+            })
             #if DEBUG
             .AddRazorRuntimeCompilation()
             #endif
@@ -84,7 +93,7 @@ namespace MyCourse
                 .AddPasswordValidator<CommonPasswordValidator<ApplicationUser>>();
 
             //Usiamo ADO.NET o Entity Framework Core per l'accesso ai dati?
-            var persistence = Persistence.AdoNet;
+            var persistence = Persistence.EfCore;
             switch (persistence)
             {
                 case Persistence.AdoNet:
@@ -130,6 +139,11 @@ namespace MyCourse
 
             // Servizio per il mapping tra datarow e viewmodel
             services.AddAutoMapper(typeof(Startup));
+
+            //Validators di FluentValidation
+            //Si possono registrare così nel caso ci sia bisogno di selezionare un ciclo di vita diverso da Transient
+            //services.AddScoped<IValidator<CourseCreateInputModel>, CourseCreateValidator>();
+            //services.AddSingleton<IValidator<CourseEditInputModel>, CourseEditValidator>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -177,7 +191,7 @@ namespace MyCourse
 
             app.UseResponseCaching();
 
-            //EndpointMiddleware
+            //EndpointRoutingMiddleware
             app.UseEndpoints(routeBuilder => {
                 routeBuilder.MapControllerRoute(
                     name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");

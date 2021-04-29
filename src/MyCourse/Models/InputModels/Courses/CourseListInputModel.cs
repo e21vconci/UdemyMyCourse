@@ -27,7 +27,7 @@ namespace MyCourse.Models.InputModels.Courses
             Offset = (Page - 1) * Limit;
         }
 
-        //Rimuovere i setter per evitare che i valori una volta sanitizzati non possano essere più cambiati
+        //Rimuovere i setter per evitare che i valori una volta sanitizzati possano essere cambiati
         public string Search { get; }
         public int Page { get; }
         public string OrderBy { get; }
