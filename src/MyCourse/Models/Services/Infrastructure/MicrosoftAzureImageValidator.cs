@@ -31,7 +31,7 @@ namespace MyCourse.Models.Services.Infrastructure
                 VisualFeatureTypes.Adult
             };
             using Stream stream = formFile.OpenReadStream();
-            ImageAnalysis result = await client.AnalyzeImageInStreamAsync(stream, visualFeatures: features);
+            ImageAnalysis result = await client.AnalyzeImageInStreamAsync(stream, features);
             bool isValid = result.Adult.AdultScore <= options.MaximumAdultScore;
             return isValid;
         }
