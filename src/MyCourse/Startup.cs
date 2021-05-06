@@ -129,6 +129,7 @@ namespace MyCourse
             services.AddTransient<ICachedLessonService, MemoryCacheLessonService>();
             services.AddSingleton<IImagePersister, MagickNetImagePersister>();
             services.AddSingleton<IEmailSender, MailKitEmailSender>();
+            services.AddTransient<IImageValidator, MicrosoftAzureImageValidator>();
 
             //Options prelevate dal file appsettings.json
             services.Configure<ConnectionStringsOptions>(Configuration.GetSection("ConnectionStrings"));
@@ -136,6 +137,7 @@ namespace MyCourse
             services.Configure<MemoryCacheOptions>(Configuration.GetSection("MemoryCache"));
             services.Configure<KestrelServerOptions>(Configuration.GetSection("Kestrel"));
             services.Configure<SmtpOptions>(Configuration.GetSection("Smtp"));
+            services.Configure<ImageValidationOptions>(Configuration.GetSection("ImageValidation"));
 
             // Servizio per il mapping tra datarow e viewmodel
             services.AddAutoMapper(typeof(Startup));

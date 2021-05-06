@@ -1,13 +1,20 @@
 ﻿using FluentValidation;
+using Microsoft.AspNetCore.Http;
 using MyCourse.Models.InputModels.Courses;
+using MyCourse.Models.Services.Infrastructure;
 using MyCourse.Models.ValueTypes;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MyCourse.Models.Validators
 {
     public class CourseEditValidator : AbstractValidator<CourseEditInputModel>
     {
-        public CourseEditValidator()
+        private readonly IImageValidator imageValidator;
+        public CourseEditValidator(IImageValidator imageValidator)
         {
+            this.imageValidator = imageValidator;
+
             RuleFor(model => model.Id)
                 .NotEmpty();
 
@@ -33,6 +40,20 @@ namespace MyCourse.Models.Validators
                 .NotEmpty().WithMessage("Il prezzo intero è obbligatorio")
                 .Must(HaveTheSameCurrencyAsFullPrice).WithMessage("Il prezzo corrente deve avere la stessa valuta del prezzo intero")
                 .Must(HaveAmountLessThanOrEqualToFullPrice).WithMessage("Il prezzo corrente deve essere inferiore al prezzo intero");
+
+            // Si utilizza MustAsync perchè verranno effettuate richieste http per utilizzare il servizio e quindi 
+            // ci sarà una latenza.
+            RuleFor(model => model.Image)
+                .MustAsync(HaveValidContent).WithMessage("L'immagine ha del contenuto inappropriato");
+        }
+
+        private async Task<bool> HaveValidContent(IFormFile formFile, CancellationToken cancellationToken)
+        {
+            if (formFile == null)
+            {
+                return true;
+            }
+            return await imageValidator.IsValidAsync(formFile);
         }
 
         private bool HaveTheSameCurrencyAsFullPrice(CourseEditInputModel model, Money currentPrice)
