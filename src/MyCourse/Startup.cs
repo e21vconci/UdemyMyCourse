@@ -4,6 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Globalization;
+using System.Security.Claims;
+using System.Net.Http;
+using System.Text.Json;
 using AutoMapper;
 using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +21,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authentication;
 
 using MyCourse.Models.Enums;
 using MyCourse.Models.Options;
@@ -46,6 +51,26 @@ namespace MyCourse
             services.AddResponseCaching();
             // Abilito Razor Pages
             services.AddRazorPages();
+
+            // Login tramite Facebook
+            services.AddAuthentication().AddFacebook(facebookOptions =>
+            {
+                facebookOptions.AppId = Configuration["Authentication:Facebook:AppId"];
+                facebookOptions.AppSecret = Configuration["Authentication:Facebook:AppSecret"];
+
+                facebookOptions.Scope.Add("email");
+                facebookOptions.Scope.Add("user_location");
+
+                facebookOptions.Events = new OAuthEvents
+                {
+                    OnCreatingTicket = async context =>
+                    {
+                        var location = await GetUserLocationFromFacebook(context.AccessToken);
+                        var identity = context.Principal.Identity as ClaimsIdentity;
+                        identity.AddClaim(new Claim(ClaimTypes.Locality, location));
+                    }
+                };
+            });
 
             services.AddMvc(options =>
             {
@@ -148,8 +173,17 @@ namespace MyCourse
             //services.AddSingleton<IValidator<CourseEditInputModel>, CourseEditValidator>();
         }
 
+        private async Task<string> GetUserLocationFromFacebook(string accessToken)
+        {
+            using var client = new HttpClient();
+            var response = await client.GetAsync($"https://graph.facebook.com/v9.0/me?access_token={accessToken}&fields=location");
+            var body = await response.Content.ReadAsStreamAsync();
+            var document = JsonDocument.Parse(body);
+            return document.RootElement.GetProperty("location").GetString("name");
+        }
+
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        // Qui vengono inseriti i middleware
+        // Qui vengono inseriti i middleware. L'ordine dei middleware è importante. 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime lifetime)
         {
             /*if (env.IsProduction()) 

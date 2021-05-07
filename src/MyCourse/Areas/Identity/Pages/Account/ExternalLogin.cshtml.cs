@@ -52,6 +52,9 @@ namespace MyCourse.Areas.Identity.Pages.Account
             [Required]
             [EmailAddress]
             public string Email { get; set; }
+
+            [Required]
+            public string FullName { get; set; }
         }
 
         public IActionResult OnGetAsync()
@@ -76,6 +79,17 @@ namespace MyCourse.Areas.Identity.Pages.Account
                 return RedirectToPage("./Login", new {ReturnUrl = returnUrl });
             }
             var info = await _signInManager.GetExternalLoginInfoAsync();
+
+            // Se volessi persistere immediatamente le informazioni dell'utente dopo il login con Facebook
+            // evitando un ulteriore registrazione
+            var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+            var fullName = info.Principal.FindFirstValue(ClaimTypes.Name);
+
+            //var user = new ApplicationUser { Email = email, UserName = email, FullName = fullName };
+            //await _userManager.CreateAsync(user);
+            //await _signInManager.SignInAsync(user, isPersistent: false);
+            //return Redirect("/");
+
             if (info == null)
             {
                 ErrorMessage = "Error loading external login information.";
@@ -102,7 +116,8 @@ namespace MyCourse.Areas.Identity.Pages.Account
                 {
                     Input = new InputModel
                     {
-                        Email = info.Principal.FindFirstValue(ClaimTypes.Email)
+                        Email = email,
+                        FullName = fullName
                     };
                 }
                 return Page();
@@ -122,7 +137,8 @@ namespace MyCourse.Areas.Identity.Pages.Account
 
             if (ModelState.IsValid)
             {
-                var user = new ApplicationUser { UserName = Input.Email, Email = Input.Email };
+                // Aggiunto il FullName
+                var user = new ApplicationUser { UserName = Input.Email, Email = Input.Email, FullName = Input.FullName };
 
                 var result = await _userManager.CreateAsync(user);
                 if (result.Succeeded)

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using MyCourse.Models.Exceptions;
@@ -43,6 +44,7 @@ namespace MyCourse.Controllers
             return View(viewModel);
         }
 
+        [Authorize]
         public IActionResult Create()
         {
             ViewData["Title"] = "Nuovo Corso";
@@ -50,6 +52,7 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
+        [Authorize]
         [HttpPost] //Per differenziare la chiamata all'action del controller in base al method del form nella view
         public async Task<IActionResult> Create(CourseCreateInputModel inputModel)
         {
@@ -72,12 +75,14 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
+        [Authorize]
         public async Task<IActionResult> IsTitleAvailable(string title, int id = 0)
         {
             bool result = await courseService.IsTitleAvailableAsync(title, id);
             return Json(result);
         }
 
+        [Authorize]
         public async Task<IActionResult> Edit(int id)
         {
             ViewData["Title"] = "Modifica corso";
@@ -85,6 +90,7 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Edit(CourseEditInputModel inputModel)
         {
@@ -115,6 +121,7 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Delete(CourseDeleteInputModel inputModel)
         {
