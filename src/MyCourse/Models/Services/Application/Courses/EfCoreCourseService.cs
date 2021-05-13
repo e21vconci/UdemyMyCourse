@@ -19,6 +19,7 @@ using MyCourse.Models.Exceptions.Application;
 using MyCourse.Models.InputModels.Courses;
 using MyCourse.Models.ViewModels.Courses;
 using MyCourse.Models.ViewModels.Lessons;
+using Ganss.XSS;
 
 namespace MyCourse.Models.Services.Application.Courses
 {
@@ -30,14 +31,16 @@ namespace MyCourse.Models.Services.Application.Courses
         private readonly ILogger<EfCoreCourseService> logger;
         private readonly IImagePersister imagePersister;
         private readonly IHttpContextAccessor httpContextAccessor;
+        private readonly IEmailClient emailClient;
 
-        public EfCoreCourseService(IHttpContextAccessor httpContextAccessor, ILogger<EfCoreCourseService> logger, IImagePersister imagePersister, MyCourseDbContext dbContext, IOptionsMonitor<CoursesOptions> coursesOptions)
+        public EfCoreCourseService(IHttpContextAccessor httpContextAccessor, ILogger<EfCoreCourseService> logger, IEmailClient emailClient, IImagePersister imagePersister, MyCourseDbContext dbContext, IOptionsMonitor<CoursesOptions> coursesOptions)
         {
             this.httpContextAccessor = httpContextAccessor;
             this.imagePersister = imagePersister;
             this.logger = logger;
             this.coursesOptions = coursesOptions;
             this.dbContext = dbContext;
+            this.emailClient = emailClient;
         }
 
         public MyCourseDbContext DbContext { get; }
@@ -202,7 +205,7 @@ namespace MyCourse.Models.Services.Application.Courses
             }
             catch (NullReferenceException)
             {
-                throw new UserUnkownException();
+                throw new UserUnknownException();
             }
 
             var course = new Course(title, author, authorId);
@@ -298,5 +301,68 @@ namespace MyCourse.Models.Services.Application.Courses
             course.ChangeStatus(CourseStatus.Deleted);
             await dbContext.SaveChangesAsync();
         }
-    }
+
+        public async Task SendQuestionToCourseAuthorAsync(int id, string question)
+        {
+            // Sanitizzo l'input dell'utente
+            question = new HtmlSanitizer(allowedTags: new string[0]).Sanitize(question);
+
+            // Recupero le informazioni del corso
+            Course course = await dbContext.Courses.FindAsync(id);
+
+            if (course == null)
+            {
+                logger.LogWarning("Course {id} not found", id);
+                throw new CourseNotFoundException(id);
+            }
+
+            string courseTitle = course.Title;
+            string courseEmail = course.Email;
+
+            // Recupero le informazioni dell'utente che vuole inviare la domanda
+            string userFullName;
+            string userEmail;
+
+            try
+            {
+                userFullName = httpContextAccessor.HttpContext.User.FindFirst("FullName").Value;
+                // Aggiunto il claim Email nella classe CustomClaimsPrincipalFactory oppure utilizzare il claim Name
+                // Nei claims ricavati dall'User tramite httpContext, non è presente il ClaimTypes.Email
+                // Se nel CustomClaimsPrincipalFactory aggiungo il claim in questo modo:
+                // identity.AddClaim(new Claim(ClaimTypes.Email, user.Email)); posso ricavarmi il valore dell'email dell'utente con ClaimTypes.Email
+                userEmail = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.Email).Value;
+            }
+            catch (NullReferenceException)
+            {
+                throw new UserUnknownException();
+            }
+
+            // Sanitizzo la domanda dell'utente
+            question = new HtmlSanitizer(allowedTags: new string[0]).Sanitize(question);
+
+            // Compongo il testo della domanda
+            string subject = $@"Domanda per il tuo corso ""{courseTitle}""";
+            string message = $@"<p>L'utente {userFullName} (<a href=""{userEmail}"">{userEmail}</a>)
+                                ti ha inviato la seguente domanda per il tuo corso ""{courseTitle}"".</p>
+                                <p>{question}</p>";
+
+            // Invio la domanda
+            try
+            {
+                await emailClient.SendEmailAsync(courseEmail, userEmail, subject, message);
+            }
+            catch
+            {
+                throw new SendException();
+            }
+        }
+
+        // Metodo per prelevare l'id dell'autore di un corso per la policy di autorizzazione 
+        public Task<string> GetCourseAuthorIdAsync(int courseId)
+        {
+            return dbContext.Courses
+                .Where(course => course.Id == courseId)
+                .Select(course => course.AuthorId)
+                .FirstOrDefaultAsync();
+        }
 }

@@ -33,6 +33,10 @@ using MyCourse.Models.Services.Application.Courses;
 using MyCourse.Models.Services.Application.Lessons;
 using MyCourse.Customizations.ModelBinders;
 using MyCourse.Customizations.Identity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using AspNetCore.ReCaptcha;
+using MyCourse.Models.Authorization;
 
 namespace MyCourse
 {
@@ -48,9 +52,12 @@ namespace MyCourse
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddReCaptcha(Configuration.GetSection("ReCaptcha"));
             services.AddResponseCaching();
             // Abilito Razor Pages
-            services.AddRazorPages();
+            services.AddRazorPages(options => {
+                options.Conventions.AllowAnonymousToPage("/Privacy");
+            });
 
             // Login tramite Facebook
             services.AddAuthentication().AddFacebook(facebookOptions =>
@@ -60,7 +67,8 @@ namespace MyCourse
 
                 facebookOptions.Scope.Add("email");
                 facebookOptions.Scope.Add("user_location");
-
+                
+                // Per ottenere altre informazioni da Facebook
                 facebookOptions.Events = new OAuthEvents
                 {
                     OnCreatingTicket = async context =>
@@ -82,6 +90,12 @@ namespace MyCourse
                 options.CacheProfiles.Add("Home", homeProfile);
 
                 options.ModelBinderProviders.Insert(0, new DecimalModelBinderProvider());
+
+                // Tutte le action di tutti i controller richiedono autorizzazione
+                AuthorizationPolicyBuilder policyBuilder = new AuthorizationPolicyBuilder();
+                AuthorizationPolicy policy = policyBuilder.RequireAuthenticatedUser().Build();
+                AuthorizeFilter filter = new AuthorizeFilter(policy);
+                options.Filters.Add(filter);
 
             }).SetCompatibilityVersion(CompatibilityVersion.Version_3_0)
             .AddFluentValidation(options => {
@@ -154,7 +168,19 @@ namespace MyCourse
             services.AddTransient<ICachedLessonService, MemoryCacheLessonService>();
             services.AddSingleton<IImagePersister, MagickNetImagePersister>();
             services.AddSingleton<IEmailSender, MailKitEmailSender>();
+            services.AddSingleton<IEmailClient, MailKitEmailSender>();
             services.AddTransient<IImageValidator, MicrosoftAzureImageValidator>();
+            services.AddSingleton<IAuthorizationHandler, CourseAuthorRequirementHandler>();
+
+            // Policies
+            services.AddAuthorization(options => 
+            {
+                // La mia policy che permette solo all'autore del corso la sua modifica
+                options.AddPolicy("CourseAuthor", builder => 
+                {
+                    builder.Requirements.Add(new CourseAuthorRequirement());
+                });
+            });
 
             //Options prelevate dal file appsettings.json
             services.Configure<ConnectionStringsOptions>(Configuration.GetSection("ConnectionStrings"));
@@ -163,6 +189,7 @@ namespace MyCourse
             services.Configure<KestrelServerOptions>(Configuration.GetSection("Kestrel"));
             services.Configure<SmtpOptions>(Configuration.GetSection("Smtp"));
             services.Configure<ImageValidationOptions>(Configuration.GetSection("ImageValidation"));
+            services.Configure<UsersOptions>(Configuration.GetSection("Users"));
 
             // Servizio per il mapping tra datarow e viewmodel
             services.AddAutoMapper(typeof(Startup));

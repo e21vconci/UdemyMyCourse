@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using MyCourse.Models.Enums;
 using MyCourse.Models.Exceptions;
 using MyCourse.Models.Exceptions.Application;
 using MyCourse.Models.InputModels.Courses;
@@ -12,6 +12,7 @@ using MyCourse.Models.ViewModels.Courses;
 
 namespace MyCourse.Controllers
 {
+    [Authorize(Roles = nameof(Role.Teacher))]
     public class CoursesController : Controller
     {
         private readonly ICourseService courseService;
@@ -21,6 +22,7 @@ namespace MyCourse.Controllers
             this.courseService = courseService;
         }
 
+        [AllowAnonymous]
         public async Task<IActionResult> Index(CourseListInputModel input/*string search, int page, string orderby, bool ascending*/)
         {
             ViewData["Title"] = "Catalogo dei corsi";
@@ -52,7 +54,6 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
-        [Authorize]
         [HttpPost] //Per differenziare la chiamata all'action del controller in base al method del form nella view
         public async Task<IActionResult> Create(CourseCreateInputModel inputModel)
         {
@@ -75,14 +76,12 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
-        [Authorize]
         public async Task<IActionResult> IsTitleAvailable(string title, int id = 0)
         {
             bool result = await courseService.IsTitleAvailableAsync(title, id);
             return Json(result);
         }
 
-        [Authorize]
         public async Task<IActionResult> Edit(int id)
         {
             ViewData["Title"] = "Modifica corso";
@@ -90,7 +89,6 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
-        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Edit(CourseEditInputModel inputModel)
         {
@@ -121,7 +119,6 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
-        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Delete(CourseDeleteInputModel inputModel)
         {

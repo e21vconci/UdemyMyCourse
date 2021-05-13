@@ -20,6 +20,7 @@ namespace MyCourse.Customizations.Identity
             // Aggiungo il mio claim personalizzato
             ClaimsIdentity identity = await base.GenerateClaimsAsync(user);
             identity.AddClaim(new Claim("FullName", user.FullName));
+            identity.AddClaim(new Claim(ClaimTypes.Email, user.Email));
             return identity;
         }
     }

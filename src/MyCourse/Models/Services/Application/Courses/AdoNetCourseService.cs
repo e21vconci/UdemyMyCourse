@@ -21,6 +21,9 @@ using MyCourse.Models.ViewModels.Courses;
 using MyCourse.Models.ViewModels.Lessons;
 using MyCourse.Models.Enums;
 using MyCourse.Models.Extensions;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using Ganss.XSS;
 
 namespace MyCourse.Models.Services.Application.Courses
 {
@@ -31,15 +34,19 @@ namespace MyCourse.Models.Services.Application.Courses
         private readonly IOptionsMonitor<CoursesOptions> coursesOptions;
         private readonly ILogger<AdoNetCourseService> logger;
         private readonly IMapper mapper;
+        private readonly IHttpContextAccessor httpContextAccessor;
+        private readonly IEmailClient emailClient;
 
         public AdoNetCourseService(ILogger<AdoNetCourseService> logger, IImagePersister imagePersister,
-            IDatabaseAccessor db, IOptionsMonitor<CoursesOptions> coursesOptions, IMapper mapper)
+            IDatabaseAccessor db, IOptionsMonitor<CoursesOptions> coursesOptions, IMapper mapper, IHttpContextAccessor httpContextAccessor, IEmailClient emailClient)
         {
             this.mapper = mapper;
             this.imagePersister = imagePersister;
             this.logger = logger;
             this.coursesOptions = coursesOptions;
             this.db = db;
+            this.httpContextAccessor = httpContextAccessor;
+            this.emailClient = emailClient;
         }
         public async Task<CourseDetailViewModel> GetCourseAsync(int id)
         {
@@ -153,7 +160,18 @@ namespace MyCourse.Models.Services.Application.Courses
         public async Task<CourseDetailViewModel> CreateCourseAsync(CourseCreateInputModel inputModel)
         {
             string title = inputModel.Title;
-            string author = "Mario Rossi";
+            string author;
+            string authorId;
+
+            try
+            {
+                author = httpContextAccessor.HttpContext.User.FindFirst("FullName").Value;
+                authorId = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
+            }
+            catch (NullReferenceException)
+            {
+                throw new UserUnknownException();
+            }
 
             try
             {
@@ -167,9 +185,9 @@ namespace MyCourse.Models.Services.Application.Courses
                 CourseDetailViewModel course = await GetCourseAsync(courseId);
                 return course;
             }
-            catch (SqliteException exc) when (exc.SqliteErrorCode == 19)
+            catch (ConstraintViolationException exc)
             {
-                throw new CourseTitleUnavailableException(title, exc);
+                throw new CourseTitleUnavailableException(inputModel.Title, exc);
             }
         }
 
@@ -216,11 +234,11 @@ namespace MyCourse.Models.Services.Application.Courses
                     imagePath = await imagePersister.SaveCourseImageAsync(inputModel.Id, inputModel.Image);
                 }
                 //dataSet = await db.QueryAsync($"UPDATE Courses SET Title={inputModel.Title}, Description={inputModel.Description}, Email={inputModel.Email}, CurrentPrice_Currency={inputModel.CurrentPrice.Currency}, CurrentPrice_Amount={inputModel.CurrentPrice.Amount}, FullPrice_Currency={inputModel.FullPrice.Currency}, FullPrice_Amount={inputModel.FullPrice.Amount} WHERE Id={inputModel.Id}");
-                int affectedRows = await db.CommandAsync($"UPDATE Courses SET ImagePath=COALESCE({imagePath}, imagePath), Title={inputModel.Title}, Description={inputModel.Description}, Email={inputModel.Email}, CurrentPrice_Currency={inputModel.CurrentPrice.Currency}, CurrentPrice_Amount={inputModel.CurrentPrice.Amount}, FullPrice_Currency={inputModel.FullPrice.Currency}, FullPrice_Amount={inputModel.FullPrice.Amount} WHERE Id={inputModel.Id} AND Status<>{nameof(CourseStatus.Deleted)} AND RowVersion={inputModel.RowVersion}");
+                int affectedRows = await db.CommandAsync($"UPDATE Courses SET ImagePath=COALESCE({imagePath}, ImagePath), Title={inputModel.Title}, Description={inputModel.Description}, Email={inputModel.Email}, CurrentPrice_Currency={inputModel.CurrentPrice.Currency.ToString()}, CurrentPrice_Amount={inputModel.CurrentPrice.Amount}, FullPrice_Currency={inputModel.FullPrice.Currency.ToString()}, FullPrice_Amount={inputModel.FullPrice.Amount} WHERE Id={inputModel.Id} AND Status<>{nameof(CourseStatus.Deleted)} AND RowVersion={inputModel.RowVersion}");
                 if (affectedRows == 0)
                 {
                     // inviamo la select in modo da sapere se il corso esisteva o meno attraverso il suo id
-                    bool courseExists = await db.QueryScalarAsync<bool>($"SELECT COUNT(*) FROM Courses WHERE id={inputModel.Id}");
+                    bool courseExists = await db.QueryScalarAsync<bool>($"SELECT COUNT(*) FROM Courses WHERE id={inputModel.Id} AND Status<>{nameof(CourseStatus.Deleted)}");
                     if (courseExists)
                     {
                         throw new OptimisticConcurrencyException();
@@ -264,6 +282,65 @@ namespace MyCourse.Models.Services.Application.Courses
             {
                 throw new CourseNotFoundException(inputModel.Id);
             }
+        }
+
+        public async Task SendQuestionToCourseAuthorAsync(int id, string question)
+        {
+            // Recupero le informazioni del corso
+            FormattableString query = $@"SELECT Title, Email FROM Courses WHERE Courses.Id={id}";
+            DataSet dataSet = await db.QueryAsync(query);
+
+            if (dataSet.Tables[0].Rows.Count == 0)
+            {
+                logger.LogWarning("Course {id} not found", id);
+                throw new CourseNotFoundException(id);
+            }
+
+            string courseTitle = Convert.ToString(dataSet.Tables[0].Rows[0]["Title"]);
+            string courseEmail = Convert.ToString(dataSet.Tables[0].Rows[0]["Email"]);
+
+            // Recupero le informazioni dell'utente che vuole inviare la domanda attraverso la sua identità
+            string userFullName;
+            string userEmail;
+
+            try
+            {
+                userFullName = httpContextAccessor.HttpContext.User.FindFirst("FullName").Value;
+                // Aggiunto il claim Email nella classe CustomClaimsPrincipalFactory oppure utilizzare il claim Name
+                // Nei claims ricavati dall'User tramite httpContext, non è presente il ClaimTypes.Email
+                // Se nel CustomClaimsPrincipalFactory aggiungo il claim in questo modo:
+                // identity.AddClaim(new Claim(ClaimTypes.Email, user.Email)); posso ricavarmi il valore dell'email dell'utente con ClaimTypes.Email
+                userEmail = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.Email).Value;
+            }
+            catch (NullReferenceException)
+            {
+                throw new UserUnknownException();
+            }
+
+            // Sanitizzo la domanda dell'utente
+            question = new HtmlSanitizer(allowedTags: new string[0]).Sanitize(question);
+
+            // Compongo il testo della domanda (sanitizzare il messaggio)
+            string subject = $@"Domanda per il tuo corso ""{courseTitle}""";
+            string message = $@"<p>L'utente {userFullName} (<a href=""{userEmail}"">{userEmail}</a>)
+                                ti ha inviato la seguente domanda:</p>
+                                <p>{question}</p>";
+
+            // Invio la domanda
+            try
+            {
+                await emailClient.SendEmailAsync(courseEmail, userEmail, subject, message);
+            }
+            catch
+            {
+                throw new SendException();
+            }
+        }
+
+        // Metodo per prelevare l'id dell'autore di un corso per la policy di autorizzazione
+        public Task<string> GetCourseAuthorIdAsync(int courseId)
+        {
+            return db.QueryScalarAsync<string>($"SELECT AuthorId FROM Courses WHERE Id={courseId}");
         }
     }
 }
