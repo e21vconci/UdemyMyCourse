@@ -102,7 +102,7 @@ namespace MyCourse
                 options.RegisterValidatorsFromAssemblyContaining<CourseCreateValidator>();
                 //Per il validator personalizzato
                 options.ConfigureClientsideValidation(clientSide => {
-                    clientSide.Add(typeof(RemotePropertyValidator), (context, description, validator) => new RemoteClientValidator(description, validator));
+                    clientSide.Add(typeof(IRemotePropertyValidator), (context, description, validator) => new RemoteClientValidator(description, validator));
                 });
             })
             #if DEBUG
