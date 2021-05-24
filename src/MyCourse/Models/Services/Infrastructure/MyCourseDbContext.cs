@@ -29,7 +29,7 @@ namespace MyCourse.Models.Services.Infrastructure
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.HasAnnotation("ProductVersion", "2.2.4-servicing-10062");
+            //modelBuilder.HasAnnotation("ProductVersion", "2.2.4-servicing-10062");
 
             // Per il mapping utilizziamo l'interfaccia fluente (FLUENT)
             modelBuilder.Entity<Course>(entity =>

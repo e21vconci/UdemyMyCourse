@@ -97,7 +97,7 @@ namespace MyCourse
                 AuthorizeFilter filter = new AuthorizeFilter(policy);
                 options.Filters.Add(filter);
 
-            }).SetCompatibilityVersion(CompatibilityVersion.Version_3_0)
+            })// .SetCompatibilityVersion(CompatibilityVersion.Version_3_0) con .NET 5 è diventato superfluo
             .AddFluentValidation(options => {
                 options.RegisterValidatorsFromAssemblyContaining<CourseCreateValidator>();
                 //Per il validator personalizzato
@@ -105,9 +105,11 @@ namespace MyCourse
                     clientSide.Add(typeof(IRemotePropertyValidator), (context, description, validator) => new RemoteClientValidator(description, validator));
                 });
             })
-            #if DEBUG
-            .AddRazorRuntimeCompilation()
-            #endif
+            // Con .NET 5 può essere spostato nel file launchSettings.json
+            // "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES": "Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation"
+            //#if DEBUG
+            //.AddRazorRuntimeCompilation()
+            //#endif
             ;
 
             var identityBuilder = services.AddDefaultIdentity<ApplicationUser>(options => {
@@ -232,7 +234,13 @@ namespace MyCourse
             } 
             else 
             {
-                app.UseExceptionHandler("/Error");
+                //app.UseExceptionHandler("/Error");
+                // Breaking change .NET 5: https://docs.microsoft.com/en-us/dotnet/core/compatibility/aspnet-core/5.0/middleware-exception-handler-throws-original-exception
+                app.UseExceptionHandler(new ExceptionHandlerOptions
+                {
+                    ExceptionHandlingPath = "/Error",
+                    AllowStatusCode404Response = true
+                });
             }
 
             app.UseStaticFiles();

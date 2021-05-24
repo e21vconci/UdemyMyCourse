@@ -4,8 +4,7 @@ using MyCourse.Models.Enums;
 
 namespace MyCourse.Models.ValueTypes
 {
-    [Owned]
-    public class Money
+    public record Money
     {
         public Money() : this(Currency.EUR, 0.00m)
         {
@@ -22,7 +21,7 @@ namespace MyCourse.Models.ValueTypes
             {
                 return amount;
             }
-            set
+            init
             {
                 if (value < 0) {
                     throw new InvalidOperationException("The amount cannot be negative");
@@ -32,21 +31,22 @@ namespace MyCourse.Models.ValueTypes
         }
         public Currency Currency
         {
-            get; set;
+            get; init;
         }
 
-        public override bool Equals(object obj)
-        {
-            var money = obj as Money;
-            return money != null &&
-                   Amount == money.Amount &&
-                   Currency == money.Currency;
-        }
+        // Con l'utilizzo dei record non c'è più bisogno di una logica personalizzata di uguaglianza. 
+        //public override bool Equals(object obj)
+        //{
+        //    var money = obj as Money;
+        //    return money != null &&
+        //           Amount == money.Amount &&
+        //           Currency == money.Currency;
+        //}
 
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Amount, Currency);
-        }
+        //public override int GetHashCode()
+        //{
+        //    return HashCode.Combine(Amount, Currency);
+        //}
         
         public override string ToString()
         {
