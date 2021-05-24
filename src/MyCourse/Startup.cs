@@ -92,10 +92,11 @@ namespace MyCourse
                 options.ModelBinderProviders.Insert(0, new DecimalModelBinderProvider());
 
                 // Tutte le action di tutti i controller richiedono autorizzazione
-                AuthorizationPolicyBuilder policyBuilder = new AuthorizationPolicyBuilder();
-                AuthorizationPolicy policy = policyBuilder.RequireAuthenticatedUser().Build();
-                AuthorizeFilter filter = new AuthorizeFilter(policy);
-                options.Filters.Add(filter);
+                // SPOSTATO NEL METODO CONFIGURE PER MOTIVI DI PERFORMANCE
+                //AuthorizationPolicyBuilder policyBuilder = new AuthorizationPolicyBuilder();
+                //AuthorizationPolicy policy = policyBuilder.RequireAuthenticatedUser().Build();
+                //AuthorizeFilter filter = new AuthorizeFilter(policy);
+                //options.Filters.Add(filter);
 
             }).SetCompatibilityVersion(CompatibilityVersion.Version_3_0)
             .AddFluentValidation(options => {
@@ -170,13 +171,14 @@ namespace MyCourse
             services.AddSingleton<IEmailSender, MailKitEmailSender>();
             services.AddSingleton<IEmailClient, MailKitEmailSender>();
             services.AddTransient<IImageValidator, MicrosoftAzureImageValidator>();
-            services.AddSingleton<IAuthorizationHandler, CourseAuthorRequirementHandler>();
+            // Lo scope deve essere Transient altrimenti con EfCore si ha un problema con la dependency injection
+            services.AddTransient<IAuthorizationHandler, CourseAuthorRequirementHandler>();
 
             // Policies
             services.AddAuthorization(options => 
             {
                 // La mia policy che permette solo all'autore del corso la sua modifica
-                options.AddPolicy("CourseAuthor", builder => 
+                options.AddPolicy(nameof(Policy.CourseAuthor), builder => 
                 {
                     builder.Requirements.Add(new CourseAuthorRequirement());
                 });
@@ -257,8 +259,8 @@ namespace MyCourse
             //EndpointRoutingMiddleware
             app.UseEndpoints(routeBuilder => {
                 routeBuilder.MapControllerRoute(
-                    name: "default", pattern: "{controller=Home}/{action=Index}/{id?}");
-                routeBuilder.MapRazorPages();
+                    name: "default", pattern: "{controller=Home}/{action=Index}/{id?}").RequireAuthorization();
+                routeBuilder.MapRazorPages().RequireAuthorization();
             });
 
             // Middleware di routing .NET 2.2
