@@ -19,5 +19,6 @@ namespace MyCourse.Models.Services.Application.Courses
         Task<bool> IsTitleAvailableAsync(string title, int id);
         Task<string> GetCourseAuthorIdAsync(int courseId);
         Task SendQuestionToCourseAuthorAsync(int id, string question);
+        Task<int> GetCourseCountByAuthorIdAsync(string authorId);
     }
 }

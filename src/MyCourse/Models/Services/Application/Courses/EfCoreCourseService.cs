@@ -48,14 +48,14 @@ namespace MyCourse.Models.Services.Application.Courses
         public async Task<CourseDetailViewModel> GetCourseAsync(int id)
         {
             // Con esempio di query dichiarativa
-            IQueryable<CourseDetailViewModel> queryLinq = 
+            IQueryable<CourseDetailViewModel> queryLinq =
                 from course in dbContext.Courses.AsNoTracking().Include(course => course.Lessons)
-                where course.Id == id 
+                where course.Id == id
                 select CourseDetailViewModel.FromEntity(course);
-                // .Where(course => course.Id == id)
-                // .Select(course => CourseDetailViewModel.FromEntity(course)); //Usando metodi statici come FromEntity, la query potrebbe essere inefficiente. Mantenere il mapping nella lambda oppure usare un extension method personalizzato
+            // .Where(course => course.Id == id)
+            // .Select(course => CourseDetailViewModel.FromEntity(course)); //Usando metodi statici come FromEntity, la query potrebbe essere inefficiente. Mantenere il mapping nella lambda oppure usare un extension method personalizzato
 
-            CourseDetailViewModel viewModel = await queryLinq.SingleAsync();
+            CourseDetailViewModel viewModel = await queryLinq.FirstOrDefaultAsync();
             //.FirstOrDefaultAsync(); //Restituisce null se l'elenco è vuoto e non solleva mai un'eccezione
             //.SingleOrDefaultAsync(); //Tollera il fatto che l'elenco sia vuoto e in quel caso restituisce null, oppure se l'elenco contiene più di un elemento solleva un'eccezione
             //.FirstAsync(); //Restituisce il primo elemento, ma se l'elenco è vuoto solleva un'eccezione
@@ -194,10 +194,10 @@ namespace MyCourse.Models.Services.Application.Courses
             //string author = "Mario Rossi";
 
             // Tramite Identity possiamo ricavare l'utente autenticato che effettua la creazione del corso
-            string author; 
+            string author;
             string authorId;
-            
-            try 
+
+            try
             {
                 author = httpContextAccessor.HttpContext.User.FindFirst("FullName").Value;
                 // Ricavo l'id dell'utente registrato che crea il nuovo corso
@@ -365,4 +365,12 @@ namespace MyCourse.Models.Services.Application.Courses
                 .Select(course => course.AuthorId)
                 .FirstOrDefaultAsync();
         }
+
+        public Task<int> GetCourseCountByAuthorIdAsync(string authorId)
+        {
+            return dbContext.Courses
+                .Where(course => course.AuthorId == authorId)
+                .CountAsync();
+        }
+    }
 }

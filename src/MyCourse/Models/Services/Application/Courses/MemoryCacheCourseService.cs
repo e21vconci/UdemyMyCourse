@@ -15,42 +15,46 @@ namespace MyCourse.Models.Services.Application.Courses
         private readonly IMemoryCache memoryCache;
         private readonly IConfiguration configuration;
 
+        // TimeSpan ottenuto da configurazione (appsettings.json)
+        private readonly int expirationTimeCache;
+
         public MemoryCacheCourseService(ICourseService courseService, IMemoryCache memoryCache, IConfiguration configuration)
         {
             this.configuration = configuration;
             this.memoryCache = memoryCache;
             this.courseService = courseService;
+            this.expirationTimeCache = configuration.GetValue<int>("MemoryCache:TimeSpan");
         }
 
         public Task<CourseDetailViewModel> GetCourseAsync(int id)
         {
-            int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
+            //int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
             return memoryCache.GetOrCreateAsync($"Course{id}", cacheEntry =>
             {
                 //cacheEntry.SetSize(1);
-                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(timeSpan)); //Esercizio: provate a recuperare il valore 60 usando il servizio di configurazione(nel file appsettings.json)
+                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(expirationTimeCache)); //Esercizio: provate a recuperare il valore 60 usando il servizio di configurazione(nel file appsettings.json)
                 return courseService.GetCourseAsync(id);
             });
         }
 
         public Task<List<CourseViewModel>> GetMostRecentCoursesAsync()
         {
-            int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
+            //int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
 
             return memoryCache.GetOrCreateAsync($"MostRecentCourses", cacheEntry =>
             {
-                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(timeSpan));
+                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(expirationTimeCache));
                 return courseService.GetMostRecentCoursesAsync();
             });
         }
 
         public Task<List<CourseViewModel>> GetBestRatingCoursesAsync()
         {
-            int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
+            //int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
 
             return memoryCache.GetOrCreateAsync($"BestRatingCourses", cacheEntry =>
             {
-                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(timeSpan));
+                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(expirationTimeCache));
                 return courseService.GetBestRatingCoursesAsync();
             });
         }
@@ -66,11 +70,11 @@ namespace MyCourse.Models.Services.Application.Courses
             //Se canCache è true, sfrutto il meccanismo di caching
             if (canCache)
             {
-                int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
+                //int timeSpan = configuration.GetValue<int>("MemoryCache:TimeSpan");
                 return memoryCache.GetOrCreateAsync($"Courses{model.Page}-{model.OrderBy}-{model.Ascending}", cacheEntry =>
                 {
                     //cacheEntry.SetSize(1);
-                    cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(timeSpan)); //Esercizio: provate a recuperare il valore 60 usando il servizio di configurazione
+                    cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(expirationTimeCache)); //Esercizio: provate a recuperare il valore 60 usando il servizio di configurazione
                     return courseService.GetCoursesAsync(model);
                 });
             }
@@ -111,6 +115,24 @@ namespace MyCourse.Models.Services.Application.Courses
         public Task SendQuestionToCourseAuthorAsync(int id, string question)
         {
             return courseService.SendQuestionToCourseAuthorAsync(id, question);
+        }
+
+        public Task<string> GetCourseAuthorIdAsync(int courseId)
+        {
+            return memoryCache.GetOrCreateAsync($"CourseAuthorId{courseId}", cacheEntry =>
+            {
+                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(expirationTimeCache)); //Esercizio: provate a recuperare il valore 60 usando il servizio di configurazione
+                return courseService.GetCourseAuthorIdAsync(courseId);
+            });
+        }
+
+        public Task<int> GetCourseCountByAuthorIdAsync(string authorId)
+        {
+            return memoryCache.GetOrCreateAsync($"CourseCountByAuthorId{authorId}", cacheEntry =>
+            {
+                cacheEntry.SetAbsoluteExpiration(TimeSpan.FromSeconds(expirationTimeCache)); //Esercizio: provate a recuperare il valore 60 usando il servizio di configurazione
+                return courseService.GetCourseCountByAuthorIdAsync(authorId);
+            });
         }
     }
 }

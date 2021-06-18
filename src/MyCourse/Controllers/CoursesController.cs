@@ -2,11 +2,14 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using MyCourse.Models.Enums;
 using MyCourse.Models.Exceptions;
 using MyCourse.Models.Exceptions.Application;
 using MyCourse.Models.InputModels.Courses;
+using MyCourse.Models.Options;
 using MyCourse.Models.Services.Application.Courses;
+using MyCourse.Models.Services.Infrastructure;
 using MyCourse.Models.ViewModels;
 using MyCourse.Models.ViewModels.Courses;
 
@@ -55,7 +58,7 @@ namespace MyCourse.Controllers
         }
 
         [HttpPost] //Per differenziare la chiamata all'action del controller in base al method del form nella view
-        public async Task<IActionResult> Create(CourseCreateInputModel inputModel)
+        public async Task<IActionResult> Create(CourseCreateInputModel inputModel, [FromServices] IAuthorizationService authorizationService, [FromServices] IEmailClient emailClient, [FromServices] IOptionsMonitor<UsersOptions> usersOptions)
         {
             if (ModelState.IsValid)
             {
@@ -63,6 +66,25 @@ namespace MyCourse.Controllers
                 {
                     //Coinvolgere un servizio applicativo in modo che il corso venga creato
                     CourseDetailViewModel course = await courseService.CreateCourseAsync(inputModel);
+
+                    // Utilizzo l'IAuthorizationService per verificare se il docente ha creato più di 5 corsi
+                    // Per non inserire logica nel controller, potremmo spostare questo blocco all'interno del metodo CreateCourseAsync del servizio applicativo
+                    // ...ma attenzione a non creare riferimenti circolari! Se il course service dipende da IAuthorizationService
+                    // ...e viceversa l'authorization handler dipende dal course service, allora la dependency injection non riuscirà a risolvere nessuno dei due servizi, dandoci un errore
+                    AuthorizationResult result = await authorizationService.AuthorizeAsync(User, nameof(Policy.CourseLimit));
+                    if (!result.Succeeded)
+                    {
+                        await emailClient.SendEmailAsync(usersOptions.CurrentValue.NotificationEmailRecipient, "Avviso superamento soglia", $"Il docente {User.Identity.Name} ha creato molti corsi: verifica che riesca a gestirli tutti.");
+                    }
+
+                    // Avremmo anche potuto operare diversamente e non utilizzare il meccanismo delle policy per effettuare questa verifica
+                    // Il meccanismo della policy è utile se tale logica deve essere riutilizzata in più punti dell'applicazione
+                    //int courseCount = await courseService.GetCourseCountByAuthorIdAsync(userId);
+                    //if (courseCount > 5)
+                    //{
+                    //    // Invio l'email
+                    //}
+
                     TempData["ConfirmationMessage"] = "Ok! Il tuo corso è stato creato, ora perché non inserisci anche gli altri dati?";
                     return RedirectToAction(nameof(Edit), new { id = course.Id });
                 }
@@ -82,6 +104,7 @@ namespace MyCourse.Controllers
             return Json(result);
         }
 
+        [Authorize(Policy = nameof(Policy.CourseAuthor))]
         public async Task<IActionResult> Edit(int id)
         {
             ViewData["Title"] = "Modifica corso";
@@ -90,6 +113,7 @@ namespace MyCourse.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = nameof(Policy.CourseAuthor))]
         public async Task<IActionResult> Edit(CourseEditInputModel inputModel)
         {
             if (ModelState.IsValid)
@@ -120,6 +144,7 @@ namespace MyCourse.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = nameof(Policy.CourseAuthor))]
         public async Task<IActionResult> Delete(CourseDeleteInputModel inputModel)
         {
             await courseService.DeleteCourseAsync(inputModel);
