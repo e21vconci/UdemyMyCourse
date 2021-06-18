@@ -173,6 +173,7 @@ namespace MyCourse
             services.AddTransient<IImageValidator, MicrosoftAzureImageValidator>();
             // Lo scope deve essere Transient altrimenti con EfCore si ha un problema con la dependency injection
             services.AddTransient<IAuthorizationHandler, CourseAuthorRequirementHandler>();
+            services.AddTransient<IAuthorizationHandler, CourseLimitRequirementHandler>();
 
             // Policies
             services.AddAuthorization(options => 
@@ -181,6 +182,11 @@ namespace MyCourse
                 options.AddPolicy(nameof(Policy.CourseAuthor), builder => 
                 {
                     builder.Requirements.Add(new CourseAuthorRequirement());
+                });
+                // Policy di notifica creazione da parte di un docente di più di 5 corsi
+                options.AddPolicy(nameof(Policy.CourseLimit), builder => 
+                {
+                    builder.Requirements.Add(new CourseLimitRequirement(limit: 5));
                 });
             });
 
@@ -235,6 +241,12 @@ namespace MyCourse
             else 
             {
                 app.UseExceptionHandler("/Error");
+                // Breaking change .NET 5: https://docs.microsoft.com/en-us/dotnet/core/compatibility/aspnet-core/5.0/middleware-exception-handler-throws-original-exception
+                //app.UseExceptionHandler(new ExceptionHandlerOptions
+                //{
+                //    ExceptionHandlingPath = "/Error",
+                //    AllowStatusCode404Response = true
+                //});
             }
 
             app.UseStaticFiles();
