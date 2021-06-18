@@ -21,6 +21,9 @@ namespace MyCourse.Customizations.Identity
             ClaimsIdentity identity = await base.GenerateClaimsAsync(user);
             identity.AddClaim(new Claim("FullName", user.FullName));
             identity.AddClaim(new Claim(ClaimTypes.Email, user.Email));
+            // uso il course service per ottenere gli id dei corsi di cui è autore il docente
+            // in questo modo memorizzo nel cookie di autenticazione l'id dei corsi appartenenti al docente
+            // identity.AddClaim(new Claim("Authorof", ""));
             return identity;
         }
     }
