@@ -3,6 +3,7 @@
     public enum Policy
     {
         CourseAuthor,
+        CourseSubscriber,
         CourseLimit
     }
 }
