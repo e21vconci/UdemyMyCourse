@@ -14,6 +14,7 @@ namespace MyCourse.Models.Services.Infrastructure
 
         public virtual DbSet<Course> Courses { get; set; }
         public virtual DbSet<Lesson> Lessons { get; set; }
+        public virtual DbSet<Subscription> Subscriptions { get; set; }
 
         /* Viene eliminato quando si utilizza il service AddDbContextPool
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -71,6 +72,24 @@ namespace MyCourse.Models.Services.Infrastructure
                 entity.HasMany(course => course.Lessons) //entità principale Course relazione molti a uno(molte lezioni, un corso)
                       .WithOne(lesson => lesson.Course)
                       .HasForeignKey(lesson => lesson.CourseId); //Superflua se la proprietà si chiama CourseID
+
+                entity.HasMany(course => course.SubscribedUsers)
+                      .WithMany(user => user.SubscribedCourses)
+                      .UsingEntity<Subscription>(
+                            entity => entity.HasOne(subscription => subscription.User).WithMany().HasForeignKey(courseStudent => courseStudent.UserId),
+                            entity => entity.HasOne(subscription => subscription.Course).WithMany().HasForeignKey(courseStudent => courseStudent.CourseId),
+                            entity =>
+                            {
+                                entity.ToTable("Subscriptions");
+                                entity.OwnsOne(subscription => subscription.Paid, builder =>
+                                {
+                                    builder.Property(money => money.Currency)
+                                           .HasConversion<string>();
+                                    builder.Property(money => money.Amount)
+                                           .HasConversion<float>();
+                                });
+                            }
+                );
 
                 //Global Query Filter
                 entity.HasQueryFilter(course => course.Status != CourseStatus.Deleted);
