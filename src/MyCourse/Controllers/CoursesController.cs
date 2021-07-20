@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +17,6 @@ using MyCourse.Models.ViewModels.Courses;
 
 namespace MyCourse.Controllers
 {
-    [Authorize(Roles = nameof(Role.Teacher))]
     public class CoursesController : Controller
     {
         private readonly ICourseService courseService;
@@ -41,6 +42,26 @@ namespace MyCourse.Controllers
             return View(viewModel);
         }
 
+        [Authorize]
+        public async Task<IActionResult> Subscribe(int id)
+        {
+            //TODO: reindirizzo l'utente verso la pagina di pagamento
+            // Se il pagamento si conclude correttamento persisto l'utente nella tabella del db
+            CourseSubscribeInputModel inputModel = new CourseSubscribeInputModel()
+            {
+                CourseId = id,
+                UserId = User.FindFirstValue(ClaimTypes.NameIdentifier),
+                TransactionId = string.Empty,
+                PaymentType = string.Empty,
+                Paid = new Models.ValueTypes.Money(Currency.EUR, 0m),
+                PaymentDate = DateTime.UtcNow
+            };
+            await courseService.SubscribeCourseAsync(inputModel);
+            TempData["ConfirmationMessage"] = "Grazie per esserti iscritto, guarda subito la prima lezione!";
+            return RedirectToAction(nameof(Detail), new { id = id });
+        }
+
+        [AllowAnonymous]
         public async Task<IActionResult> Detail(int id)
         {
             //var courseService = new CourseService();
@@ -49,7 +70,7 @@ namespace MyCourse.Controllers
             return View(viewModel);
         }
 
-        [Authorize]
+        [Authorize(Roles = nameof(Role.Teacher))]
         public IActionResult Create()
         {
             ViewData["Title"] = "Nuovo Corso";
@@ -58,6 +79,7 @@ namespace MyCourse.Controllers
         }
 
         [HttpPost] //Per differenziare la chiamata all'action del controller in base al method del form nella view
+        [Authorize(Roles = nameof(Role.Teacher))]
         public async Task<IActionResult> Create(CourseCreateInputModel inputModel, [FromServices] IAuthorizationService authorizationService, [FromServices] IEmailClient emailClient, [FromServices] IOptionsMonitor<UsersOptions> usersOptions)
         {
             if (ModelState.IsValid)
@@ -98,6 +120,7 @@ namespace MyCourse.Controllers
             return View(inputModel);
         }
 
+        [Authorize(Roles = nameof(Role.Teacher))]
         public async Task<IActionResult> IsTitleAvailable(string title, int id = 0)
         {
             bool result = await courseService.IsTitleAvailableAsync(title, id);
@@ -105,6 +128,7 @@ namespace MyCourse.Controllers
         }
 
         [Authorize(Policy = nameof(Policy.CourseAuthor))]
+        [Authorize(Roles = nameof(Role.Teacher))]
         public async Task<IActionResult> Edit(int id)
         {
             ViewData["Title"] = "Modifica corso";
@@ -114,6 +138,7 @@ namespace MyCourse.Controllers
 
         [HttpPost]
         [Authorize(Policy = nameof(Policy.CourseAuthor))]
+        [Authorize(Roles = nameof(Role.Teacher))]
         public async Task<IActionResult> Edit(CourseEditInputModel inputModel)
         {
             if (ModelState.IsValid)
@@ -145,6 +170,7 @@ namespace MyCourse.Controllers
 
         [HttpPost]
         [Authorize(Policy = nameof(Policy.CourseAuthor))]
+        [Authorize(Roles = nameof(Role.Teacher))]
         public async Task<IActionResult> Delete(CourseDeleteInputModel inputModel)
         {
             await courseService.DeleteCourseAsync(inputModel);
