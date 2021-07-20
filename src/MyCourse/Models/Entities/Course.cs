@@ -35,7 +35,10 @@ namespace MyCourse.Models.Entities
         public string RowVersion { get; private set; }
         public CourseStatus Status { get; private set; }
         public string AuthorId { get; set; }
-        public ApplicationUser AuthorUser { get; set; }
+        public virtual ApplicationUser AuthorUser { get; set; }
+        public virtual ICollection<Lesson> Lessons { get; private set; }
+        // Relazione molti a molti tra utenti e corsi. Proprietà di navigazione per mappare corsi e utenti.
+        public virtual ICollection<ApplicationUser> SubscribedUsers { get; private set; }
 
         public void ChangeStatus(CourseStatus newStatus)
         {
@@ -114,6 +117,5 @@ namespace MyCourse.Models.Entities
             ImagePath = imagePath;
         }
 
-        public virtual ICollection<Lesson> Lessons { get; private set; }
     }
 }

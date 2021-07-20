@@ -11,6 +11,9 @@ namespace MyCourse.Models.Entities
         // Per accedere a tutti i corsi di cui è autore uno specifico utente
         public virtual ICollection<Course> AuthoredCourses { get; set; }
 
+        //Proprietà di navigazione per il mapping tra utente e corso al quale si è iscritto
+        public virtual ICollection<Course> SubscribedCourses { get; set; }
+
         public static ApplicationUser FromDataRow(DataRow userRow)
         {
             var applicationUser = new ApplicationUser
