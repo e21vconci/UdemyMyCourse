@@ -20,5 +20,7 @@ namespace MyCourse.Models.Services.Application.Courses
         Task<string> GetCourseAuthorIdAsync(int courseId);
         Task SendQuestionToCourseAuthorAsync(int id, string question);
         Task<int> GetCourseCountByAuthorIdAsync(string authorId);
+        Task SubscribeCourseAsync(CourseSubscribeInputModel inputModel);
+        Task<bool> IsCourseSubscribedAsync(int courseId, string userId);
     }
 }
