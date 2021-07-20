@@ -170,9 +170,14 @@ namespace MyCourse
             services.AddSingleton<IEmailSender, MailKitEmailSender>();
             services.AddSingleton<IEmailClient, MailKitEmailSender>();
             services.AddTransient<IImageValidator, MicrosoftAzureImageValidator>();
+            // Servizio per utilizzare policy multiple
+            services.AddSingleton<IAuthorizationPolicyProvider, MultiAuthorizationPolicyProvider>();
             // Lo scope deve essere Transient altrimenti con EfCore si ha un problema con la dependency injection
-            services.AddTransient<IAuthorizationHandler, CourseAuthorRequirementHandler>();
-            services.AddTransient<IAuthorizationHandler, CourseLimitRequirementHandler>();
+            // Uso il ciclo di vita Scoped per registrare questi AuthorizationHandler perché
+            // sfruttano un servizio (il DbContext) registrato con il ciclo di vita Scoped
+            services.AddScoped<IAuthorizationHandler, CourseAuthorRequirementHandler>();
+            services.AddScoped<IAuthorizationHandler, CourseSubscriberRequirementHandler>();
+            services.AddScoped<IAuthorizationHandler, CourseLimitRequirementHandler>();
 
             // Policies
             services.AddAuthorization(options => 
@@ -181,6 +186,11 @@ namespace MyCourse
                 options.AddPolicy(nameof(Policy.CourseAuthor), builder => 
                 {
                     builder.Requirements.Add(new CourseAuthorRequirement());
+                });
+                // Policy per utente iscritto ad un corso
+                options.AddPolicy(nameof(Policy.CourseSubscriber), builder =>
+                {
+                    builder.Requirements.Add(new CourseSubscriberRequirement());
                 });
                 // Policy di notifica creazione da parte di un docente di più di 5 corsi
                 options.AddPolicy(nameof(Policy.CourseLimit), builder => 
