@@ -207,6 +207,7 @@ namespace MyCourse
             services.Configure<SmtpOptions>(Configuration.GetSection("Smtp"));
             services.Configure<ImageValidationOptions>(Configuration.GetSection("ImageValidation"));
             services.Configure<UsersOptions>(Configuration.GetSection("Users"));
+            services.Configure<PaypalOptions>(Configuration.GetSection("Paypal"));
 
             // Servizio per il mapping tra datarow e viewmodel
             services.AddAutoMapper(typeof(Startup));
