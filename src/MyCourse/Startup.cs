@@ -132,7 +132,7 @@ namespace MyCourse
                 .AddPasswordValidator<CommonPasswordValidator<ApplicationUser>>();
 
             //Usiamo ADO.NET o Entity Framework Core per l'accesso ai dati?
-            var persistence = Persistence.EfCore;
+            var persistence = Persistence.AdoNet;
             switch (persistence)
             {
                 case Persistence.AdoNet:
@@ -172,6 +172,10 @@ namespace MyCourse
             services.AddTransient<IImageValidator, MicrosoftAzureImageValidator>();
             // Servizio per utilizzare policy multiple
             services.AddSingleton<IAuthorizationPolicyProvider, MultiAuthorizationPolicyProvider>();
+
+            // Servizi di pagamento
+            services.AddScoped<IPaymentGateway, PaypalPaymentGateway>();
+
             // Lo scope deve essere Transient altrimenti con EfCore si ha un problema con la dependency injection
             // Uso il ciclo di vita Scoped per registrare questi AuthorizationHandler perché
             // sfruttano un servizio (il DbContext) registrato con il ciclo di vita Scoped

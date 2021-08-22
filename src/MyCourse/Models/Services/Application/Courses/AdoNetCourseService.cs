@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
+using System.Linq;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using AutoMapper;
-using System.Linq;
 using Microsoft.Data.Sqlite;
 using ImageMagick;
 
@@ -21,7 +21,9 @@ using MyCourse.Models.ViewModels.Courses;
 using MyCourse.Models.ViewModels.Lessons;
 using MyCourse.Models.Enums;
 using MyCourse.Models.Extensions;
+using MyCourse.Controllers;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using System.Security.Claims;
 using Ganss.XSS;
 
@@ -36,9 +38,11 @@ namespace MyCourse.Models.Services.Application.Courses
         private readonly IMapper mapper;
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly IEmailClient emailClient;
+        private readonly IPaymentGateway paymentGateway;
+        private readonly LinkGenerator linkGenerator;
 
         public AdoNetCourseService(ILogger<AdoNetCourseService> logger, IImagePersister imagePersister,
-            IDatabaseAccessor db, IOptionsMonitor<CoursesOptions> coursesOptions, IMapper mapper, IHttpContextAccessor httpContextAccessor, IEmailClient emailClient)
+            IDatabaseAccessor db, IOptionsMonitor<CoursesOptions> coursesOptions, IMapper mapper, IHttpContextAccessor httpContextAccessor, IEmailClient emailClient, IPaymentGateway paymentGateway, LinkGenerator linkGenerator)
         {
             this.mapper = mapper;
             this.imagePersister = imagePersister;
@@ -47,6 +51,8 @@ namespace MyCourse.Models.Services.Application.Courses
             this.db = db;
             this.httpContextAccessor = httpContextAccessor;
             this.emailClient = emailClient;
+            this.paymentGateway = paymentGateway;
+            this.linkGenerator = linkGenerator;
         }
         public async Task<CourseDetailViewModel> GetCourseAsync(int id)
         {
@@ -363,6 +369,34 @@ namespace MyCourse.Models.Services.Application.Courses
         public Task<bool> IsCourseSubscribedAsync(int courseId, string userId)
         {
             return db.QueryScalarAsync<bool>($"SELECT COUNT(*) FROM Subscriptions WHERE CourseId={courseId} AND UserId={userId}");
+        }
+
+        public async Task<string> GetPaymentUrlAsync(int courseId)
+        {
+            CourseDetailViewModel viewModel = await GetCourseAsync(courseId);
+
+            CoursePayInputModel inputModel = new CoursePayInputModel()
+            {
+                CourseId = courseId,
+                UserId = httpContextAccessor.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier),
+                Description = viewModel.Title,
+                Price = viewModel.CurrentPrice,
+                ReturnUrl = linkGenerator.GetUriByAction(httpContextAccessor.HttpContext,
+                                          action: nameof(CoursesController.Subscribe),
+                                          controller: "Courses",
+                                          values: new { id = courseId }),
+                CancelUrl = linkGenerator.GetUriByAction(httpContextAccessor.HttpContext,
+                                          action: nameof(CoursesController.Detail),
+                                          controller: "Courses",
+                                          values: new { id = courseId })
+            };
+
+            return await paymentGateway.GetPaymentUrlAsync(inputModel);
+        }
+
+        public Task<CourseSubscribeInputModel> CapturePaymentAsync(int courseId, string token)
+        {
+            throw new NotImplementedException();
         }
     }
 }

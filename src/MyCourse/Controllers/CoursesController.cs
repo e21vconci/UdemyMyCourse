@@ -42,20 +42,29 @@ namespace MyCourse.Controllers
             return View(viewModel);
         }
 
-        [Authorize]
-        public async Task<IActionResult> Subscribe(int id)
+        // Action per effettuare il pagamento per l'iscrizione ad un corso
+        public async Task<IActionResult> Pay(int id)
         {
-            //TODO: reindirizzo l'utente verso la pagina di pagamento
+            // Url generato per il servizio di pagamento
+            string paymentUrl = await courseService.GetPaymentUrlAsync(id);
+            return Redirect(paymentUrl);
+        }
+
+        [Authorize]
+        public async Task<IActionResult> Subscribe(int id, string token)
+        {
+            CourseSubscribeInputModel inputModel = await courseService.CapturePaymentAsync(id, token);
+            
             // Se il pagamento si conclude correttamento persisto l'utente nella tabella del db
-            CourseSubscribeInputModel inputModel = new CourseSubscribeInputModel()
-            {
-                CourseId = id,
-                UserId = User.FindFirstValue(ClaimTypes.NameIdentifier),
-                TransactionId = string.Empty,
-                PaymentType = string.Empty,
-                Paid = new Models.ValueTypes.Money(Currency.EUR, 0m),
-                PaymentDate = DateTime.UtcNow
-            };
+            //CourseSubscribeInputModel inputModel = new CourseSubscribeInputModel()
+            //{
+            //    CourseId = id,
+            //    UserId = User.FindFirstValue(ClaimTypes.NameIdentifier),
+            //    TransactionId = string.Empty,
+            //    PaymentType = string.Empty,
+            //    Paid = new Models.ValueTypes.Money(Currency.EUR, 0m),
+            //    PaymentDate = DateTime.UtcNow
+            //};
             await courseService.SubscribeCourseAsync(inputModel);
             TempData["ConfirmationMessage"] = "Grazie per esserti iscritto, guarda subito la prima lezione!";
             return RedirectToAction(nameof(Detail), new { id = id });
