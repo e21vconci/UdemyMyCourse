@@ -1,14 +1,16 @@
-﻿using Microsoft.Extensions.Options;
-using MyCourse.Models.InputModels.Courses;
-using MyCourse.Models.Options;
+﻿using System;
+using System.Linq;
+using System.Globalization;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Microsoft.Extensions.Options;
 using PayPalCheckoutSdk.Core;
 using PayPalCheckoutSdk.Orders;
 using PayPalHttp;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Threading.Tasks;
+using MyCourse.Models.Enums;
+using MyCourse.Models.Options;
+using MyCourse.Models.InputModels.Courses;
+using MyCourse.Models.Exceptions.Infrastructure;
 
 namespace MyCourse.Models.Services.Infrastructure
 {
@@ -62,9 +64,43 @@ namespace MyCourse.Models.Services.Infrastructure
             return link.Href;
         }
 
-        public Task<CourseSubscribeInputModel> CapturePaymentAsync(string token)
+        public async Task<CourseSubscribeInputModel> CapturePaymentAsync(string token)
         {
-            throw new NotImplementedException();
+            try
+            {
+
+                PayPalEnvironment env = GetPayPalEnvironment(options.CurrentValue); // sandbox per i test
+                PayPalHttpClient client = new PayPalHttpClient(env);
+
+                OrdersCaptureRequest request = new OrdersCaptureRequest(token);
+                request.RequestBody(new OrderActionRequest());
+                request.Prefer("return=representation");
+
+                HttpResponse response = await client.Execute(request); // contiene i dati grezzi
+                Order result = response.Result<Order>(); // formattazione dei dati grezzi (deserializzo l'ordine)
+
+                PurchaseUnit purchaseUnit = result.PurchaseUnits.First();
+                Capture capture = purchaseUnit.Payments.Captures.First();
+
+                // $"{inputModel.CourseId}/{inputModel.UserId}" per ottenere il courseId e lo userId dal customId
+                string[] customIdParts = purchaseUnit.CustomId.Split('/');
+                int courseId = int.Parse(customIdParts[0]);
+                string userId = customIdParts[1];
+
+                return new CourseSubscribeInputModel
+                {
+                    CourseId = courseId,
+                    UserId = userId,
+                    Paid = new ValueTypes.Money(Enum.Parse<Currency>(capture.Amount.CurrencyCode), decimal.Parse(capture.Amount.Value, CultureInfo.InvariantCulture)),
+                    TransactionId = capture.Id,
+                    PaymentDate = DateTime.Parse(capture.CreateTime, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal),
+                    PaymentType = "Paypal"
+                };
+            } 
+            catch (Exception exc)
+            {
+                throw new PaymentGatewayException(exc);
+            }
         }
 
         private PayPalEnvironment GetPayPalEnvironment(PaypalOptions options)
