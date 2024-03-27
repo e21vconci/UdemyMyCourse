@@ -132,7 +132,7 @@ namespace MyCourse
                 .AddPasswordValidator<CommonPasswordValidator<ApplicationUser>>();
 
             //Usiamo ADO.NET o Entity Framework Core per l'accesso ai dati?
-            var persistence = Persistence.AdoNet;
+            var persistence = Persistence.EfCore;
             switch (persistence)
             {
                 case Persistence.AdoNet:
@@ -159,6 +159,11 @@ namespace MyCourse
                         //optionsBuilder.UseSqlite("Data Source=Data/MyCourse.db");
                         string connectionString = Configuration.GetSection("ConnectionStrings").GetValue<string>("Default");
                         optionsBuilder.UseSqlite(connectionString);
+                        // Mitigare gli errori transienti nella connessione al db con EFCore. Non per Sqlite.
+                        // optionsBuilder.UseSqlServer(connectionString, options =>
+                        // {
+                        //     options.EnableRetryOnFailure(3); // numero di tentativi
+                        // });
                     });
                 break;
             }
@@ -172,9 +177,12 @@ namespace MyCourse
             services.AddTransient<IImageValidator, MicrosoftAzureImageValidator>();
             // Servizio per utilizzare policy multiple
             services.AddSingleton<IAuthorizationPolicyProvider, MultiAuthorizationPolicyProvider>();
+            // Servizio per la scrittura su file delle transazioni dei pagamenti
+            services.AddSingleton<ITransactionLogger, LocalTransactionLogger>();
 
             // Servizi di pagamento
-            services.AddScoped<IPaymentGateway, PaypalPaymentGateway>();
+            //services.AddScoped<IPaymentGateway, PaypalPaymentGateway>();
+            services.AddTransient<IPaymentGateway, StripePaymentGateway>();
 
             // Lo scope deve essere Transient altrimenti con EfCore si ha un problema con la dependency injection
             // Uso il ciclo di vita Scoped per registrare questi AuthorizationHandler perché
@@ -212,6 +220,7 @@ namespace MyCourse
             services.Configure<ImageValidationOptions>(Configuration.GetSection("ImageValidation"));
             services.Configure<UsersOptions>(Configuration.GetSection("Users"));
             services.Configure<PaypalOptions>(Configuration.GetSection("Paypal"));
+            services.Configure<StripeOptions>(Configuration.GetSection("Stripe"));
 
             // Servizio per il mapping tra datarow e viewmodel
             services.AddAutoMapper(typeof(Startup));

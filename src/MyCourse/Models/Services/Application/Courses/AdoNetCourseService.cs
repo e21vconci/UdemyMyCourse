@@ -40,9 +40,11 @@ namespace MyCourse.Models.Services.Application.Courses
         private readonly IEmailClient emailClient;
         private readonly IPaymentGateway paymentGateway;
         private readonly LinkGenerator linkGenerator;
+        private readonly ITransactionLogger transactionLogger;
 
         public AdoNetCourseService(ILogger<AdoNetCourseService> logger, IImagePersister imagePersister,
-            IDatabaseAccessor db, IOptionsMonitor<CoursesOptions> coursesOptions, IMapper mapper, IHttpContextAccessor httpContextAccessor, IEmailClient emailClient, IPaymentGateway paymentGateway, LinkGenerator linkGenerator)
+            IDatabaseAccessor db, IOptionsMonitor<CoursesOptions> coursesOptions, IMapper mapper, IHttpContextAccessor httpContextAccessor, 
+            IEmailClient emailClient, IPaymentGateway paymentGateway, LinkGenerator linkGenerator, ITransactionLogger transactionLogger)
         {
             this.mapper = mapper;
             this.imagePersister = imagePersister;
@@ -53,6 +55,7 @@ namespace MyCourse.Models.Services.Application.Courses
             this.emailClient = emailClient;
             this.paymentGateway = paymentGateway;
             this.linkGenerator = linkGenerator;
+            this.transactionLogger = transactionLogger;
         }
         public async Task<CourseDetailViewModel> GetCourseAsync(int id)
         {
@@ -305,7 +308,7 @@ namespace MyCourse.Models.Services.Application.Courses
             string courseTitle = Convert.ToString(dataSet.Tables[0].Rows[0]["Title"]);
             string courseEmail = Convert.ToString(dataSet.Tables[0].Rows[0]["Email"]);
 
-            // Recupero le informazioni dell'utente che vuole inviare la domanda attraverso la sua identità
+            // Recupero le informazioni dell'utente che vuole inviare la domanda attraverso la sua identitï¿½
             string userFullName;
             string userEmail;
 
@@ -313,7 +316,7 @@ namespace MyCourse.Models.Services.Application.Courses
             {
                 userFullName = httpContextAccessor.HttpContext.User.FindFirst("FullName").Value;
                 // Aggiunto il claim Email nella classe CustomClaimsPrincipalFactory oppure utilizzare il claim Name
-                // Nei claims ricavati dall'User tramite httpContext, non è presente il ClaimTypes.Email
+                // Nei claims ricavati dall'User tramite httpContext, non ï¿½ presente il ClaimTypes.Email
                 // Se nel CustomClaimsPrincipalFactory aggiungo il claim in questo modo:
                 // identity.AddClaim(new Claim(ClaimTypes.Email, user.Email)); posso ricavarmi il valore dell'email dell'utente con ClaimTypes.Email
                 userEmail = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.Email).Value;
@@ -364,6 +367,10 @@ namespace MyCourse.Models.Services.Application.Courses
             {
                 throw new CourseSubscriptionException(inputModel.CourseId);
             }
+            finally // catch (Exception)
+            {
+                await transactionLogger.LogTransactionAsync(inputModel);
+            }
         }
 
         public Task<bool> IsCourseSubscribedAsync(int courseId, string userId)
@@ -396,8 +403,30 @@ namespace MyCourse.Models.Services.Application.Courses
 
         public Task<CourseSubscribeInputModel> CapturePaymentAsync(int courseId, string token)
         {
-            // Catturare il pagamento è compito del servizio infrastrutturale 
+            // Catturare il pagamento ï¿½ compito del servizio infrastrutturale 
             return paymentGateway.CapturePaymentAsync(token);
+        }
+
+        public async Task<int?> GetCourseVoteAsync(int id)
+        {
+            string userId = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
+            string vote = await db.QueryScalarAsync<string>($"SELECT Vote FROM Subscriptions WHERE CourseId={id} AND UserId={userId}");
+            return string.IsNullOrEmpty(vote) ? null : Convert.ToInt32(vote);
+        }
+
+        public async Task VoteCourseAsync(CourseVoteInputModel inputModel)
+        {
+            if (inputModel.Vote < 1 || inputModel.Vote > 5)
+            {
+                throw new InvalidVoteException(inputModel.Vote);
+            }
+
+            string userId = httpContextAccessor.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier).Value;
+            int updatedRows = await db.CommandAsync($"UPDATE Subscriptions SET Vote={inputModel.Vote} WHERE CourseId={inputModel.Id} AND UserId={userId}");
+            if (updatedRows == 0)
+            {
+                throw new CourseSubscriptionNotFoundException(inputModel.Id);
+            }
         }
     }
 }
